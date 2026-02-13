@@ -162,6 +162,23 @@
       background: linear-gradient(135deg, #7c3aed, #2563eb);
     }
 
+    .name-input {
+      width: 200px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 2px solid #334155;
+      background: #1e293b;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      text-align: center;
+      outline: none;
+      margin-bottom: 16px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .name-input:focus { border-color: #7c3aed; }
+    .name-input::placeholder { color: #64748b; }
+
     .rank-info {
       color: #f97316;
       font-size: 1.2rem;
@@ -254,12 +271,15 @@
       state = 'ended';
       Star.audio.play('success');
 
+      const savedName = localStorage.getItem('star-player-name') || '';
+
       app.innerHTML = `
         <h1>Click Frenzy</h1>
         <p class="subtitle">Time's up!</p>
         <div class="result">
           <div class="result-score">${score}</div>
           <div class="result-label">clicks in ${GAME_DURATION} seconds</div>
+          <input type="text" id="nameInput" class="name-input" placeholder="Your name" maxlength="20" value="${savedName}">
           <div class="rank-info" id="rankInfo">Submitting score...</div>
           <div class="btn-row">
             <button class="action-btn play-again-btn" id="againBtn">Play Again</button>
@@ -277,7 +297,9 @@
         Star.leaderboard.show();
       });
 
-      const result = await Star.leaderboard.submit(score);
+      const name = document.getElementById('nameInput').value.trim();
+      if (name) localStorage.setItem('star-player-name', name);
+      const result = await Star.leaderboard.submit(score, name ? { playerName: name } : undefined);
       const rankInfo = document.getElementById('rankInfo');
       if (rankInfo) {
         if (result.success && result.rank) {

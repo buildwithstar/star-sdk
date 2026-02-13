@@ -176,7 +176,7 @@
 
     // IMPORTANT: Replace with YOUR gameId from .starrc (run: npx star-sdk init "Reaction Time")
     // Do not copy this ID — it belongs to a different game.
-    Star.init({ gameId: '418dfe01-68ee-453f-ae2d-783d658a7198' });
+    Star.init({ gameId: '1789da93-c52b-4d83-9332-9993572003f7', leaderboard: { sort: 'asc' } });
 
     Star.audio.preload({
       beep: 'beep',
@@ -292,10 +292,6 @@
       const average = avg(times);
       Star.audio.play('success');
 
-      // Lower is better — submit inverted score so highest = fastest
-      // Leaderboard shows highest scores first, so we invert: 10000 - avg
-      const invertedScore = Math.max(0, 10000 - average);
-
       app.innerHTML = `
         <h1>Reaction Time</h1>
         <p class="subtitle">Results</p>
@@ -326,7 +322,7 @@
         Star.leaderboard.show();
       });
 
-      const result = await Star.leaderboard.submit(invertedScore);
+      const result = await Star.leaderboard.submit(average);
       const rankInfo = document.getElementById('rankInfo');
       if (rankInfo) {
         if (result.success && result.rank) {

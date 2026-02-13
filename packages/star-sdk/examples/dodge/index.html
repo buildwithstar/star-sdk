@@ -7,9 +7,48 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #0a0a1a; overflow: hidden; }
+
+    .game-over-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 10;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #fff;
+    }
+    .game-over-overlay.visible { display: flex; }
+    .game-over-overlay h2 { font-size: 2.8rem; font-weight: 800; margin-bottom: 8px; }
+    .game-over-overlay .final-score { font-size: 2rem; font-weight: 700; color: #3b82f6; margin-bottom: 24px; }
+    .game-over-overlay .btn-row { display: flex; gap: 12px; }
+    .game-over-overlay .action-btn {
+      padding: 12px 28px;
+      border-radius: 12px;
+      border: none;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s;
+    }
+    .game-over-overlay .action-btn:active { transform: scale(0.95); }
+    .game-over-overlay .play-btn { background: linear-gradient(135deg, #10b981, #059669); }
+    .game-over-overlay .lb-btn { background: linear-gradient(135deg, #7c3aed, #2563eb); }
   </style>
 </head>
 <body>
+  <div class="game-over-overlay" id="gameOverlay">
+    <h2>Game Over</h2>
+    <div class="final-score" id="finalScore">Score: 0</div>
+    <div class="btn-row">
+      <button class="action-btn play-btn" id="playAgainBtn">Play Again</button>
+      <button class="action-btn lb-btn" id="lbBtn">Leaderboard</button>
+    </div>
+  </div>
   <script type="module">
     import Star from 'https://esm.sh/star-sdk';
 
@@ -60,7 +99,6 @@
       // Touch — player follows finger
       canvas.addEventListener('touchstart', e => {
         e.preventDefault();
-        if (gameOver) { restart(); return; }
         touchX = e.touches[0].clientX;
       });
       canvas.addEventListener('touchmove', e => {
@@ -69,12 +107,21 @@
       });
       canvas.addEventListener('touchend', () => { touchX = null; });
 
-      // Click to restart
-      canvas.addEventListener('click', () => {
-        if (gameOver) restart();
+      const overlay = document.getElementById('gameOverlay');
+      const finalScoreEl = document.getElementById('finalScore');
+
+      document.getElementById('playAgainBtn').addEventListener('click', restart);
+      document.getElementById('lbBtn').addEventListener('click', () => {
+        Star.leaderboard.show();
       });
 
+      function showGameOver() {
+        finalScoreEl.textContent = `Score: ${score}`;
+        overlay.classList.add('visible');
+      }
+
       function restart() {
+        overlay.classList.remove('visible');
         playerX = width / 2;
         score = 0;
         gameOver = false;
@@ -122,6 +169,7 @@
               gameOver = true;
               Star.audio.play('hurt');
               Star.leaderboard.submit(score);
+              showGameOver();
             }
           }
 
@@ -168,38 +216,6 @@
         c.textAlign = 'left';
         c.fillText(`Score: ${score}`, 20, 40);
 
-        // Game over
-        if (gameOver) {
-          c.fillStyle = 'rgba(0,0,0,0.6)';
-          c.fillRect(0, 0, width, height);
-
-          c.fillStyle = '#fff';
-          c.textAlign = 'center';
-          c.font = 'bold 48px sans-serif';
-          c.fillText('Game Over', width / 2, height / 2 - 40);
-
-          c.font = 'bold 32px sans-serif';
-          c.fillStyle = '#3b82f6';
-          c.fillText(`Score: ${score}`, width / 2, height / 2 + 20);
-
-          c.font = '18px sans-serif';
-          c.fillStyle = '#888';
-          c.fillText('Tap or press Space to play again', width / 2, height / 2 + 70);
-
-          c.fillStyle = '#a855f7';
-          c.font = 'bold 16px sans-serif';
-          c.fillText('Leaderboard', width / 2, height / 2 + 110);
-        }
-      });
-
-      // Leaderboard on game over click
-      canvas.addEventListener('click', e => {
-        if (!gameOver) return;
-        const rect = canvas.getBoundingClientRect();
-        const y = e.clientY - rect.top;
-        if (y > height / 2 + 90 && y < height / 2 + 120) {
-          Star.leaderboard.show();
-        }
       });
     });
   </script>
