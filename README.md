@@ -10,7 +10,7 @@ Built by LLMs, for LLMs.
 [![npm](https://img.shields.io/npm/v/star-canvas)](https://www.npmjs.com/package/star-canvas)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[Website](https://buildwithstar.com) | [Docs](https://buildwithstar.com/docs/sdk) | [Examples](https://buildwithstar.com/examples/click-frenzy/)
+[Website](https://buildwithstar.com) | [Docs](https://buildwithstar.com/docs/sdk) | [Examples](https://buildwithstar.com/sdk/examples/click-frenzy/)
 
 ## Why Star SDK?
 
@@ -57,9 +57,9 @@ Star.game(ctx => {
 
 Complete working games — single HTML files, no build step:
 
-- **[Click Frenzy](examples/click-frenzy/)** — 5-second click speed game with leaderboard ([play live](https://buildwithstar.com/examples/click-frenzy/))
-- **[Dodge](examples/dodge/)** — Avoid falling obstacles, keyboard and touch controls ([play live](https://buildwithstar.com/examples/dodge/))
-- **[Reaction Time](examples/reaction-time/)** — Test your reflexes over 5 rounds ([play live](https://buildwithstar.com/examples/reaction-time/))
+- **[Click Frenzy](examples/click-frenzy/)** — 5-second click speed game with leaderboard ([play live](https://buildwithstar.com/sdk/examples/click-frenzy/))
+- **[Dodge](examples/dodge/)** — Avoid falling obstacles, keyboard and touch controls ([play live](https://buildwithstar.com/sdk/examples/dodge/))
+- **[Reaction Time](examples/reaction-time/)** — Test your reflexes over 5 rounds ([play live](https://buildwithstar.com/sdk/examples/reaction-time/))
 
 ## Packages
 
