@@ -32,6 +32,16 @@
     "test:e2e:setup": "playwright install",
     "test:e2e": "node e2e/server.cjs & SERVER_PID=$! && sleep 1 && playwright test --reporter=list; EXIT_CODE=$?; kill $SERVER_PID; exit $EXIT_CODE"
   },
+  "license": "MIT",
+  "homepage": "https://buildwithstar.com/docs/sdk",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buildwithstar/star-sdk.git",
+    "directory": "packages/star-audio"
+  },
+  "bugs": {
+    "url": "https://github.com/buildwithstar/star-sdk/issues"
+  },
   "keywords": [
     "audio",
     "webaudio",
@@ -61,11 +71,5 @@
     "ts-jest": "^29.1.2",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/buildwithstar/star-sdk.git",
-    "directory": "packages/star-audio"
-  },
-  "license": "MIT"
+  }
 }

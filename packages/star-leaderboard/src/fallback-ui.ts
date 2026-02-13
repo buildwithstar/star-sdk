@@ -333,22 +333,6 @@ const STYLES = `
     border-color: #4b5563;
   }
 
-  .star-lb-btn-share {
-    background: linear-gradient(to right, #2563eb, #7c3aed);
-    color: white;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .star-lb-btn-share:hover {
-    filter: brightness(1.1);
-  }
-
-  .star-lb-btn-share.copied {
-    background: #16a34a;
-  }
-
   @keyframes star-lb-fade-in {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -436,7 +420,6 @@ function createScoreRow(score: LeaderboardScore, index: number, isYou: boolean =
 export interface FallbackUIOptions {
   gameId: string | null;
   getScores: (opts?: { timeframe?: 'weekly' | 'all_time' }) => Promise<LeaderboardData>;
-  share?: (opts?: { score?: number }) => Promise<{ success: boolean; shareUrl?: string }>;
 }
 
 export function showFallbackUI(options: FallbackUIOptions): void {
@@ -529,12 +512,6 @@ export function showFallbackUI(options: FallbackUIOptions): void {
   closeBtn.addEventListener('click', closeFallbackUI);
   buttons.appendChild(closeBtn);
 
-  const shareBtn = document.createElement('button');
-  shareBtn.className = 'star-lb-btn star-lb-btn-share';
-  shareBtn.innerHTML = '📤 Share';
-  shareBtn.addEventListener('click', handleShare);
-  buttons.appendChild(shareBtn);
-
   modal.appendChild(buttons);
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
@@ -620,39 +597,6 @@ export function showFallbackUI(options: FallbackUIOptions): void {
     } finally {
       isLoading = false;
       renderContent();
-    }
-  }
-
-  async function handleShare() {
-    if (!options.share) {
-      // Fallback: copy game URL
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        shareBtn.innerHTML = '✓ Copied!';
-        shareBtn.classList.add('copied');
-        setTimeout(() => {
-          shareBtn.innerHTML = '📤 Share';
-          shareBtn.classList.remove('copied');
-        }, 2000);
-      } catch {
-        // Ignore clipboard errors
-      }
-      return;
-    }
-
-    try {
-      const result = await options.share();
-      if (result.success && result.shareUrl) {
-        await navigator.clipboard.writeText(result.shareUrl);
-        shareBtn.innerHTML = '✓ Copied!';
-        shareBtn.classList.add('copied');
-        setTimeout(() => {
-          shareBtn.innerHTML = '📤 Share';
-          shareBtn.classList.remove('copied');
-        }, 2000);
-      }
-    } catch {
-      // Ignore errors
     }
   }
 

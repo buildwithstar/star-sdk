@@ -28,6 +28,16 @@
     "build": "tsup",
     "clean": "rm -rf dist"
   },
+  "license": "MIT",
+  "homepage": "https://buildwithstar.com/docs/sdk",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buildwithstar/star-sdk.git",
+    "directory": "packages/star-canvas"
+  },
+  "bugs": {
+    "url": "https://github.com/buildwithstar/star-sdk/issues"
+  },
   "keywords": [
     "dom",
     "canvas",
@@ -46,11 +56,5 @@
   "devDependencies": {
     "tsup": "^8.0.2",
     "typescript": "^5.4.5"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/buildwithstar/star-sdk.git",
-    "directory": "packages/star-canvas"
-  },
-  "license": "MIT"
+  }
 }

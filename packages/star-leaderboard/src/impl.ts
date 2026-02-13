@@ -172,7 +172,6 @@ export function createLeaderboardImpl(options: LeaderboardOptions = {}): StarLea
         showFallbackUI({
           gameId: getGameId(),
           getScores: instance.getScores.bind(instance),
-          share: instance.share.bind(instance),
         });
       }
     },

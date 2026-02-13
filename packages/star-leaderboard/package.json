@@ -1,6 +1,6 @@
 {
   "name": "star-leaderboard",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": false,
   "description": "Leaderboard SDK for Star games - submit scores and display rankings.",
   "type": "module",
@@ -24,6 +24,16 @@
     "clean": "rm -rf dist",
     "test": "jest"
   },
+  "license": "MIT",
+  "homepage": "https://buildwithstar.com/docs/sdk",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buildwithstar/star-sdk.git",
+    "directory": "packages/star-leaderboard"
+  },
+  "bugs": {
+    "url": "https://github.com/buildwithstar/star-sdk/issues"
+  },
   "keywords": [
     "leaderboard",
     "scores",
@@ -40,11 +50,5 @@
     "ts-jest": "^29.1.2",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/buildwithstar/star-sdk.git",
-    "directory": "packages/star-leaderboard"
-  },
-  "license": "MIT"
+  }
 }
