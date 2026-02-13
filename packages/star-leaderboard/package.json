@@ -1,6 +1,6 @@
 {
   "name": "star-leaderboard",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": false,
   "description": "Leaderboard SDK for Star games - submit scores and display rankings.",
   "type": "module",

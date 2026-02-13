@@ -1,6 +1,6 @@
 {
   "name": "star-sdk",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "private": false,
   "description": "Browser game SDK with built-in leaderboards (no backend needed) and mobile-safe audio. Works on iOS Safari. Perfect for AI-generated games.",
   "type": "module",

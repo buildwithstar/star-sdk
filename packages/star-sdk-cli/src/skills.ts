@@ -84,6 +84,20 @@ function gameOver(finalScore) {
 }
 \`\`\`
 
+### Lower-is-Better Games (Time, Moves, Golf)
+
+For games where lower scores win, set \`sort: 'asc'\` in \`Star.init()\`:
+
+\`\`\`javascript
+Star.init({ gameId: '<gameId from .starrc>', leaderboard: { sort: 'asc' } });
+
+// Submit the raw value — do NOT invert the score
+Star.leaderboard.submit(reactionTimeMs);
+Star.leaderboard.show();
+\`\`\`
+
+**Do NOT** invert scores to fake ascending order (e.g., \`10000 - score\`). Use \`sort: 'asc'\` instead.
+
 ### Audio (It Just Works)
 
 Star.audio handles mobile audio unlocking automatically. Just call \`play()\` - no special handling needed.
@@ -1082,7 +1096,7 @@ game(({ ctx, width, height, loop, ui, on, canvas }) => {
 - Score submission (works for guests and logged-in users)
 - Leaderboard UI (modal with rankings)
 - Weekly/all-time timeframes
-- AI-detected scoring (score/time/moves - higher or lower is better)
+- Configurable sort order (\`'asc'\` for lower-is-better, \`'desc'\` for higher-is-better)
 
 ---
 
@@ -1269,6 +1283,27 @@ const data = await leaderboard.getScores({
   you: { ... } | null,      // Your score if outside top scores
   weekResetTime: 1234567890 // Unix ms when weekly resets
 }
+\`\`\`
+
+---
+
+**Sort Order:**
+
+By default, leaderboards rank higher scores first (\`'desc'\`). For games where lower is better (reaction time, speedruns, golf), set \`sort: 'asc'\`:
+
+\`\`\`javascript
+const leaderboard = createLeaderboard({ gameId: '<gameId from .starrc>', sort: 'asc' });
+\`\`\`
+
+**IMPORTANT: Do NOT invert scores to fake ascending order.** Use \`sort: 'asc'\` instead.
+
+\`\`\`javascript
+// BAD — do not do this
+leaderboard.submit(10000 - reactionTimeMs);
+
+// GOOD — submit the real value with sort: 'asc'
+const leaderboard = createLeaderboard({ gameId, sort: 'asc' });
+leaderboard.submit(reactionTimeMs);
 \`\`\`
 
 ---

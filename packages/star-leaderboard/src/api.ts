@@ -13,6 +13,8 @@ import type {
 export interface SubmitOptions {
   /** Player name to associate with the score */
   playerName?: string;
+  /** Sort preference: 'asc' (lower is better) or 'desc' (higher is better) */
+  sort?: 'asc' | 'desc';
 }
 
 export interface ApiClient {
@@ -56,9 +58,12 @@ export function createApiClient(apiBase: string = ''): ApiClient {
     async submit(gameId: string, score: number, options?: SubmitOptions): Promise<SubmitResult> {
       try {
         const encodedGameId = encodeURIComponent(gameId);
-        const body: { score: number; playerName?: string } = { score };
+        const body: { score: number; playerName?: string; sort?: string } = { score };
         if (options?.playerName) {
           body.playerName = options.playerName;
+        }
+        if (options?.sort) {
+          body.sort = options.sort.toUpperCase();
         }
         const result = await request<{
           success: boolean;

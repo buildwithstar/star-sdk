@@ -58,7 +58,7 @@ game(({ ctx, width, height, loop, ui, on, canvas }) => {
 - Score submission (works for guests and logged-in users)
 - Leaderboard UI (modal with rankings)
 - Weekly/all-time timeframes
-- AI-detected scoring (score/time/moves - higher or lower is better)
+- Configurable sort order (`'asc'` for lower-is-better, `'desc'` for higher-is-better)
 
 ---
 
@@ -253,6 +253,35 @@ const data = await leaderboard.getScores({
   you: { ... } | null,      // Your score if outside top scores
   weekResetTime: 1234567890 // Unix ms when weekly resets
 }
+```
+
+---
+
+**Sort Order:**
+
+By default, leaderboards rank higher scores first (`'desc'`). For games where lower is better (reaction time, speedruns, golf), set `sort: 'asc'`:
+
+{{{ IF_INTERNAL }}}
+```javascript
+const leaderboard = createLeaderboard({ sort: 'asc' });
+```
+{{{ ENDIF_INTERNAL }}}
+
+{{{ IF_PUBLIC }}}
+```javascript
+const leaderboard = createLeaderboard({ gameId: '<gameId from .starrc>', sort: 'asc' });
+```
+{{{ ENDIF_PUBLIC }}}
+
+**IMPORTANT: Do NOT invert scores to fake ascending order.** Use `sort: 'asc'` instead.
+
+```javascript
+// BAD — do not do this
+leaderboard.submit(10000 - reactionTimeMs);
+
+// GOOD — submit the real value with sort: 'asc'
+const leaderboard = createLeaderboard({ gameId, sort: 'asc' });
+leaderboard.submit(reactionTimeMs);
 ```
 
 ---

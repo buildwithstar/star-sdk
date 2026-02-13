@@ -72,6 +72,7 @@ export function createLeaderboardImpl(options: LeaderboardOptions = {}): StarLea
   const isPlatform = detectPlatformContext();
   const explicitGameId = options.gameId ?? null;
   const apiBase = options.apiBase ?? (isPlatform ? '' : 'https://buildwithstar.com');
+  const sortPreference = options.sort ?? null;
 
   let platformBridge: PlatformBridge | null = null;
   let apiClient: ApiClient | null = null;
@@ -120,7 +121,7 @@ export function createLeaderboardImpl(options: LeaderboardOptions = {}): StarLea
           }
           // Use custom playerName if provided, otherwise use persistent default
           const playerName = options?.playerName || getDefaultPlayerName() || undefined;
-          result = await apiClient.submit(gid, score, { playerName });
+          result = await apiClient.submit(gid, score, { playerName, sort: sortPreference ?? undefined });
         } else {
           return { success: false, error: 'Not initialized' };
         }

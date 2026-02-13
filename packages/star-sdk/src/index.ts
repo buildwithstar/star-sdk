@@ -20,7 +20,7 @@
  */
 
 import type { StarAudioOptions, Manifest, PlayOptions } from 'star-audio';
-import type { GetScoresOptions, ShareOptions } from 'star-leaderboard';
+import type { GetScoresOptions, ShareOptions, SubmitScoreOptions } from 'star-leaderboard';
 import type { GameContext, GameOptions } from 'star-canvas';
 import type { StartOptions as MultiplayerOptions } from 'star-multiplayer';
 
@@ -38,7 +38,7 @@ import { createMultiplayer, type StarMultiplayer } from 'star-multiplayer';
 // State
 // ============================================================
 
-let _initOptions: { gameId: string; apiBase?: string } | null = null;
+let _initOptions: { gameId: string; apiBase?: string; leaderboard?: { sort?: 'asc' | 'desc' } } | null = null;
 let _audio: StarAudio | null = null;
 let _leaderboard: StarLeaderboard | null = null;
 
@@ -112,7 +112,7 @@ function getLeaderboard(): StarLeaderboard {
       }
     }
 
-    _leaderboard = createLeaderboard({ gameId, apiBase });
+    _leaderboard = createLeaderboard({ gameId, apiBase, sort: _initOptions?.leaderboard?.sort });
   }
   return _leaderboard!;
 }
@@ -136,7 +136,7 @@ const Star = {
    * Star.init({ gameId: '<gameId from .starrc>' });
    * ```
    */
-  init(options: { gameId: string; apiBase?: string }) {
+  init(options: { gameId: string; apiBase?: string; leaderboard?: { sort?: 'asc' | 'desc' } }) {
     _initOptions = options;
     // Reset leaderboard so it picks up new options
     if (_leaderboard) {
@@ -204,7 +204,7 @@ const Star = {
    * ```
    */
   leaderboard: {
-    submit: (score: number) => getLeaderboard().submit(score),
+    submit: (score: number, opts?: SubmitScoreOptions) => getLeaderboard().submit(score, opts),
     show: () => getLeaderboard().show(),
     getScores: (opts?: GetScoresOptions) => getLeaderboard().getScores(opts),
     share: (opts?: ShareOptions) => getLeaderboard().share(opts),
@@ -285,6 +285,7 @@ export type {
   LeaderboardData,
   ScoreEntry,
   SubmitResult,
+  SubmitScoreOptions,
   GetScoresOptions,
   ShareOptions,
   ShareResult,

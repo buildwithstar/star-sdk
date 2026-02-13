@@ -81,6 +81,20 @@ function gameOver(finalScore) {
 }
 ```
 
+### Lower-is-Better Games (Time, Moves, Golf)
+
+For games where lower scores win, set `sort: 'asc'` in `Star.init()`:
+
+```javascript
+Star.init({ gameId: '<gameId from .starrc>', leaderboard: { sort: 'asc' } });
+
+// Submit the raw value — do NOT invert the score
+Star.leaderboard.submit(reactionTimeMs);
+Star.leaderboard.show();
+```
+
+**Do NOT** invert scores to fake ascending order (e.g., `10000 - score`). Use `sort: 'asc'` instead.
+
 ### Audio (It Just Works)
 
 Star.audio handles mobile audio unlocking automatically. Just call `play()` - no special handling needed.

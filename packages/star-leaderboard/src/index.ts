@@ -43,6 +43,12 @@ export interface LeaderboardOptions {
    * API base URL. Auto-configured; only override for custom deployments.
    */
   apiBase?: string;
+
+  /**
+   * Sort order: 'desc' (higher is better, default) or 'asc' (lower is better).
+   * Use 'asc' for time-based or golf-style games where lower scores win.
+   */
+  sort?: 'asc' | 'desc';
 }
 
 /**
