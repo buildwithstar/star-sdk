@@ -1,0 +1,56 @@
+{
+  "name": "star-sdk",
+  "version": "0.1.18",
+  "private": false,
+  "description": "Browser game SDK with built-in leaderboards (no backend needed) and mobile-safe audio. Works on iOS Safari. Perfect for AI-generated games.",
+  "type": "module",
+  "sideEffects": false,
+  "bin": {
+    "star-sdk": "./dist/cli.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "skills",
+    "examples"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "star",
+    "sdk",
+    "games",
+    "web",
+    "audio",
+    "canvas",
+    "leaderboard"
+  ],
+  "dependencies": {
+    "star-audio": "*",
+    "star-canvas": "*",
+    "star-leaderboard": "*",
+    "star-multiplayer": "^0.0.2",
+    "star-sdk-cli": "*"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buildwithstar/star-sdk.git",
+    "directory": "packages/star-sdk"
+  },
+  "license": "MIT"
+}

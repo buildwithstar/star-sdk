@@ -1,0 +1,14 @@
+{
+  "name": "star-sdk-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "yarn workspace star-audio build && yarn workspace star-canvas build && yarn workspace star-leaderboard build && yarn workspace star-sdk-cli build && yarn workspace star-sdk build",
+    "test": "yarn workspace star-audio test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

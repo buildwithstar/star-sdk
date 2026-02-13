@@ -1,0 +1,56 @@
+{
+  "name": "star-canvas",
+  "version": "0.1.5",
+  "private": false,
+  "description": "Canvas game utilities for reliable game initialization - part of Star SDK.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.mjs",
+      "require": "./dist/*.cjs"
+    }
+  },
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "PROMPT.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "dom",
+    "canvas",
+    "game-loop",
+    "mobile",
+    "responsive",
+    "dpr",
+    "retina",
+    "games",
+    "web",
+    "nextjs",
+    "vite",
+    "typescript"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buildwithstar/star-sdk.git",
+    "directory": "packages/star-canvas"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,39 @@
+{
+  "name": "star-sdk-cli",
+  "version": "0.1.11",
+  "description": "CLI tool for Star SDK - register games and manage leaderboards",
+  "type": "module",
+  "bin": {
+    "star-sdk": "./dist/cli.mjs"
+  },
+  "exports": {
+    ".": "./dist/cli.mjs",
+    "./cli": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prebuild": "node scripts/bundle-skills.cjs",
+    "build": "tsup",
+    "dev": "tsx src/cli.ts"
+  },
+  "keywords": [
+    "star",
+    "sdk",
+    "cli",
+    "games",
+    "leaderboard"
+  ],
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buildwithstar/star-sdk.git",
+    "directory": "packages/star-sdk-cli"
+  },
+  "license": "MIT"
+}

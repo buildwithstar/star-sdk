@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Star Audio E2E Test</title>
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; }
+    #root {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="root">Tap anywhere to test</div>
+  <script type="module">
+    import { createStarAudio } from './star-sdk/audio.js';
+    // Expose the factory to the window so our tests can access it.
+    window.createStarAudio = createStarAudio;
+  </script>
+</body>
+</html>

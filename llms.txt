@@ -1,0 +1,39 @@
+# Star SDK
+> Browser game SDK with leaderboards, audio, canvas, and multiplayer. No backend needed. Works on iOS Safari.
+
+## Documentation
+- [AGENTS.md](AGENTS.md): Build, test, and contribute instructions for AI agents
+- [SKILL.md](packages/star-sdk/skills/star-sdk/SKILL.md): Unified API reference
+- [Audio API](packages/star-audio/PROMPT.md): Mobile-first Web Audio engine
+- [Canvas API](packages/star-canvas/PROMPT.md): Game loop, DPR scaling, input
+- [Leaderboard API](packages/star-leaderboard/PROMPT.md): Score submission and display
+
+## Examples
+- [Click Frenzy](examples/click-frenzy/index.html): DOM clicker game with leaderboard
+- [Dodge](examples/dodge/index.html): Canvas obstacle avoidance game
+- [Reaction Time](examples/reaction-time/index.html): Reaction test with inverted scoring
+
+## Packages (npm)
+- [star-sdk](https://www.npmjs.com/package/star-sdk): Umbrella package
+- [star-audio](https://www.npmjs.com/package/star-audio): Mobile-first game audio
+- [star-canvas](https://www.npmjs.com/package/star-canvas): Canvas game loop and DPR scaling
+- [star-leaderboard](https://www.npmjs.com/package/star-leaderboard): Score submission and rankings
+- [star-sdk-cli](https://www.npmjs.com/package/star-sdk-cli): CLI tools
+
+## Quick Start
+```bash
+npm install star-sdk
+npx star-sdk init "My Game"   # REQUIRED: creates .starrc with server-issued gameId
+```
+
+The gameId is a server-issued token. Do not fabricate one — it must come from `npx star-sdk init`.
+
+```javascript
+import Star from 'star-sdk';
+Star.init({ gameId: '<gameId from .starrc>' });
+Star.game(ctx => {
+  Star.audio.preload({ coin: 'coin' });
+  ctx.loop((dt) => { /* game loop */ });
+  ctx.canvas.onclick = () => Star.audio.play('coin');
+});
+```

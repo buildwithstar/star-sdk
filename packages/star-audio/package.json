@@ -1,0 +1,71 @@
+{
+  "name": "star-audio",
+  "version": "0.1.2",
+  "private": false,
+  "description": "Mobile-first Web Audio for games.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.mjs",
+      "require": "./dist/*.cjs"
+    }
+  },
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "PROMPT.md",
+    "LICENSE-3RD-PARTY.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist",
+    "test": "jest",
+    "test:e2e:setup": "playwright install",
+    "test:e2e": "node e2e/server.cjs & SERVER_PID=$! && sleep 1 && playwright test --reporter=list; EXIT_CODE=$?; kill $SERVER_PID; exit $EXIT_CODE"
+  },
+  "keywords": [
+    "audio",
+    "webaudio",
+    "mobile",
+    "ios",
+    "unlock",
+    "autoplay",
+    "games",
+    "bgm",
+    "sfx",
+    "crossfade",
+    "ducking",
+    "web",
+    "nextjs",
+    "vite",
+    "typescript"
+  ],
+  "dependencies": {
+    "howler": "^2.2.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.1",
+    "@types/howler": "^2.2.12",
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buildwithstar/star-sdk.git",
+    "directory": "packages/star-audio"
+  },
+  "license": "MIT"
+}

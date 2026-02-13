@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reaction Time</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a1a;
+      color: #fff;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 480px;
+      width: 100%;
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #10b981, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #888;
+      font-size: 0.95rem;
+      margin-bottom: 32px;
+    }
+
+    .zone {
+      width: 320px;
+      height: 320px;
+      border-radius: 24px;
+      margin: 0 auto 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .zone-waiting {
+      background: #1e293b;
+      border: 2px solid #334155;
+    }
+
+    .zone-ready {
+      background: #dc2626;
+      border: 2px solid #ef4444;
+      animation: pulse-red 0.8s ease-in-out infinite alternate;
+    }
+
+    .zone-go {
+      background: #16a34a;
+      border: 2px solid #22c55e;
+    }
+
+    .zone-result {
+      background: #1e293b;
+      border: 2px solid #334155;
+    }
+
+    @keyframes pulse-red {
+      to { background: #b91c1c; }
+    }
+
+    .zone-text {
+      font-size: 1.4rem;
+      font-weight: 700;
+      pointer-events: none;
+    }
+
+    .time-display {
+      font-size: 4rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .time-unit {
+      font-size: 1rem;
+      color: #888;
+      margin-bottom: 16px;
+    }
+
+    .rounds {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .round-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #334155;
+    }
+
+    .round-dot.done {
+      background: #3b82f6;
+    }
+
+    .round-dot.active {
+      background: #10b981;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      padding: 12px 28px;
+      border-radius: 12px;
+      border: none;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+      transition: transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .action-btn:active { transform: scale(0.95); }
+
+    .play-btn {
+      background: linear-gradient(135deg, #10b981, #059669);
+    }
+
+    .lb-btn {
+      background: linear-gradient(135deg, #7c3aed, #2563eb);
+    }
+
+    .rank-info {
+      color: #f97316;
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      min-height: 1.5em;
+    }
+
+    .too-early {
+      color: #ef4444;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="app"></div>
+
+  <script type="module">
+    import Star from 'https://esm.sh/star-sdk';
+
+    // IMPORTANT: Replace with YOUR gameId from .starrc (run: npx star-sdk init "Reaction Time")
+    // Do not copy this ID — it belongs to a different game.
+    Star.init({ gameId: '418dfe01-68ee-453f-ae2d-783d658a7198' });
+
+    Star.audio.preload({
+      beep: 'beep',
+      success: 'success',
+      error: 'error',
+      click: 'click',
+    });
+
+    const ROUNDS = 5;
+    const app = document.getElementById('app');
+
+    let state = 'idle'; // idle | waiting | ready | go | result | done
+    let times = [];
+    let roundStart = 0;
+    let timeout = null;
+
+    function avg(arr) {
+      return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+    }
+
+    function roundDots() {
+      return Array.from({ length: ROUNDS }, (_, i) => {
+        const cls = i < times.length ? 'round-dot done' : i === times.length ? 'round-dot active' : 'round-dot';
+        return `<div class="${cls}"></div>`;
+      }).join('');
+    }
+
+    function render() {
+      if (state === 'idle') {
+        app.innerHTML = `
+          <h1>Reaction Time</h1>
+          <p class="subtitle">Test your reflexes — ${ROUNDS} rounds, best average wins</p>
+          <div class="zone zone-waiting" id="zone">
+            <span class="zone-text">Tap to start</span>
+          </div>
+          <div class="rounds">${roundDots()}</div>
+        `;
+        document.getElementById('zone').addEventListener('pointerdown', startRound);
+      }
+    }
+
+    function startRound() {
+      state = 'waiting';
+      app.innerHTML = `
+        <h1>Reaction Time</h1>
+        <p class="subtitle">Round ${times.length + 1} of ${ROUNDS}</p>
+        <div class="zone zone-ready" id="zone">
+          <span class="zone-text">Wait for green...</span>
+        </div>
+        <div class="rounds">${roundDots()}</div>
+      `;
+
+      // Random delay 1-4 seconds
+      const delay = 1000 + Math.random() * 3000;
+      timeout = setTimeout(() => {
+        state = 'go';
+        roundStart = performance.now();
+        Star.audio.play('beep');
+        const zone = document.getElementById('zone');
+        if (zone) {
+          zone.className = 'zone zone-go';
+          zone.innerHTML = '<span class="zone-text">TAP NOW!</span>';
+        }
+      }, delay);
+
+      document.getElementById('zone').addEventListener('pointerdown', onTap);
+    }
+
+    function onTap() {
+      if (state === 'waiting') {
+        // Too early
+        clearTimeout(timeout);
+        Star.audio.play('error');
+        state = 'result';
+        app.innerHTML = `
+          <h1>Reaction Time</h1>
+          <p class="subtitle">Round ${times.length + 1} of ${ROUNDS}</p>
+          <div class="zone zone-result" id="zone">
+            <span class="too-early">Too early!</span>
+          </div>
+          <div class="rounds">${roundDots()}</div>
+        `;
+        document.getElementById('zone').addEventListener('pointerdown', () => {
+          startRound();
+        });
+      } else if (state === 'go') {
+        const elapsed = Math.round(performance.now() - roundStart);
+        times.push(elapsed);
+        Star.audio.play('click');
+        state = 'result';
+
+        if (times.length >= ROUNDS) {
+          showFinal();
+        } else {
+          app.innerHTML = `
+            <h1>Reaction Time</h1>
+            <p class="subtitle">Round ${times.length} of ${ROUNDS}</p>
+            <div class="zone zone-result" id="zone">
+              <div>
+                <div class="time-display">${elapsed}</div>
+                <div class="time-unit">milliseconds</div>
+              </div>
+            </div>
+            <div class="rounds">${roundDots()}</div>
+          `;
+          document.getElementById('zone').addEventListener('pointerdown', startRound);
+        }
+      }
+    }
+
+    async function showFinal() {
+      state = 'done';
+      const average = avg(times);
+      Star.audio.play('success');
+
+      // Lower is better — submit inverted score so highest = fastest
+      // Leaderboard shows highest scores first, so we invert: 10000 - avg
+      const invertedScore = Math.max(0, 10000 - average);
+
+      app.innerHTML = `
+        <h1>Reaction Time</h1>
+        <p class="subtitle">Results</p>
+        <div class="zone zone-result">
+          <div>
+            <div class="time-display">${average}</div>
+            <div class="time-unit">ms average</div>
+          </div>
+        </div>
+        <div class="rounds">${roundDots()}</div>
+        <p style="color:#666;font-size:0.85rem;margin-bottom:8px">
+          ${times.map((t, i) => `R${i + 1}: ${t}ms`).join(' · ')}
+        </p>
+        <div class="rank-info" id="rankInfo">Submitting...</div>
+        <div class="btn-row">
+          <button class="action-btn play-btn" id="againBtn">Play Again</button>
+          <button class="action-btn lb-btn" id="lbBtn">Leaderboard</button>
+        </div>
+      `;
+
+      document.getElementById('againBtn').addEventListener('pointerdown', () => {
+        times = [];
+        state = 'idle';
+        render();
+      });
+
+      document.getElementById('lbBtn').addEventListener('pointerdown', () => {
+        Star.leaderboard.show();
+      });
+
+      const result = await Star.leaderboard.submit(invertedScore);
+      const rankInfo = document.getElementById('rankInfo');
+      if (rankInfo) {
+        if (result.success && result.rank) {
+          rankInfo.textContent = `Ranked #${result.rank}!`;
+        } else if (result.success) {
+          rankInfo.textContent = 'Score submitted!';
+        } else {
+          rankInfo.textContent = '';
+        }
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

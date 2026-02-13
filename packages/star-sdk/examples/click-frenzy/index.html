@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Click Frenzy</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a1a;
+      color: #fff;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .game-container {
+      text-align: center;
+      max-width: 420px;
+      width: 100%;
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #f97316, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #888;
+      font-size: 0.95rem;
+      margin-bottom: 32px;
+    }
+
+    .timer {
+      font-size: 4rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #e2e8f0;
+      margin-bottom: 8px;
+      line-height: 1;
+    }
+
+    .timer.urgent {
+      color: #ef4444;
+      animation: pulse 0.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulse {
+      to { opacity: 0.5; }
+    }
+
+    .score-display {
+      font-size: 6rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 24px;
+      color: #fff;
+      transition: transform 0.08s;
+    }
+
+    .score-display.pop {
+      transform: scale(1.15);
+    }
+
+    .click-btn {
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #7c3aed, #2563eb);
+      box-shadow: 0 8px 32px rgba(124, 58, 237, 0.4);
+      transition: transform 0.08s, box-shadow 0.08s;
+      position: relative;
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .click-btn:active {
+      transform: scale(0.95);
+      box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+    }
+
+    .click-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .click-btn .label {
+      position: relative;
+      z-index: 1;
+    }
+
+    .start-btn {
+      background: linear-gradient(135deg, #10b981, #059669);
+      box-shadow: 0 8px 32px rgba(16, 185, 129, 0.4);
+      font-size: 1.6rem;
+    }
+
+    .start-btn:active {
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+    }
+
+    .result {
+      margin-top: 32px;
+    }
+
+    .result-score {
+      font-size: 3rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .result-label {
+      color: #888;
+      font-size: 1rem;
+      margin-bottom: 24px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      padding: 12px 28px;
+      border-radius: 12px;
+      border: none;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+      transition: transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .action-btn:active {
+      transform: scale(0.95);
+    }
+
+    .play-again-btn {
+      background: linear-gradient(135deg, #10b981, #059669);
+    }
+
+    .leaderboard-btn {
+      background: linear-gradient(135deg, #7c3aed, #2563eb);
+    }
+
+    .rank-info {
+      color: #f97316;
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container" id="app"></div>
+
+  <script type="module">
+    import Star from 'https://esm.sh/star-sdk';
+
+    // IMPORTANT: Replace with YOUR gameId from .starrc (run: npx star-sdk init "Click Frenzy")
+    // Do not copy this ID — it belongs to a different game.
+    Star.init({ gameId: '9bcdcc87-df62-49c3-ada0-2fc6fc3ffd9b' });
+
+    const GAME_DURATION = 5;
+    const app = document.getElementById('app');
+
+    let state = 'idle';
+    let score = 0;
+    let timeLeft = GAME_DURATION;
+    let timerInterval = null;
+
+    function render() {
+      if (state === 'idle') {
+        app.innerHTML = `
+          <h1>Click Frenzy</h1>
+          <p class="subtitle">How fast can you click in ${GAME_DURATION} seconds?</p>
+          <div class="timer">${GAME_DURATION}.0</div>
+          <div class="score-display">0</div>
+          <button class="click-btn start-btn" id="startBtn">
+            <span class="label">START</span>
+          </button>
+        `;
+        document.getElementById('startBtn').addEventListener('pointerdown', startGame);
+      }
+    }
+
+    function startGame() {
+      state = 'playing';
+      score = 0;
+      timeLeft = GAME_DURATION;
+
+      app.innerHTML = `
+        <h1>Click Frenzy</h1>
+        <p class="subtitle">GO GO GO!</p>
+        <div class="timer" id="timer">${GAME_DURATION}.0</div>
+        <div class="score-display" id="score">0</div>
+        <button class="click-btn" id="clickBtn">
+          <span class="label">CLICK!</span>
+        </button>
+      `;
+
+      const clickBtn = document.getElementById('clickBtn');
+      const scoreEl = document.getElementById('score');
+      const timerEl = document.getElementById('timer');
+
+      clickBtn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        if (state !== 'playing') return;
+        score++;
+        scoreEl.textContent = score;
+        scoreEl.classList.add('pop');
+        Star.audio.play('click');
+        setTimeout(() => scoreEl.classList.remove('pop'), 80);
+      });
+
+      const startTime = performance.now();
+
+      timerInterval = setInterval(() => {
+        const elapsed = (performance.now() - startTime) / 1000;
+        timeLeft = Math.max(0, GAME_DURATION - elapsed);
+        timerEl.textContent = timeLeft.toFixed(1);
+
+        if (timeLeft <= 2) {
+          timerEl.classList.add('urgent');
+        }
+
+        if (timeLeft <= 0) {
+          endGame();
+        }
+      }, 50);
+    }
+
+    async function endGame() {
+      clearInterval(timerInterval);
+      state = 'ended';
+      Star.audio.play('success');
+
+      app.innerHTML = `
+        <h1>Click Frenzy</h1>
+        <p class="subtitle">Time's up!</p>
+        <div class="result">
+          <div class="result-score">${score}</div>
+          <div class="result-label">clicks in ${GAME_DURATION} seconds</div>
+          <div class="rank-info" id="rankInfo">Submitting score...</div>
+          <div class="btn-row">
+            <button class="action-btn play-again-btn" id="againBtn">Play Again</button>
+            <button class="action-btn leaderboard-btn" id="lbBtn">Leaderboard</button>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('againBtn').addEventListener('pointerdown', () => {
+        state = 'idle';
+        render();
+      });
+
+      document.getElementById('lbBtn').addEventListener('pointerdown', () => {
+        Star.leaderboard.show();
+      });
+
+      const result = await Star.leaderboard.submit(score);
+      const rankInfo = document.getElementById('rankInfo');
+      if (rankInfo) {
+        if (result.success && result.rank) {
+          rankInfo.textContent = `You ranked #${result.rank}!`;
+        } else if (result.success) {
+          rankInfo.textContent = 'Score submitted!';
+        } else {
+          rankInfo.textContent = '';
+        }
+      }
+    }
+
+    Star.audio.preload({ click: 'click', success: 'success' });
+    render();
+  </script>
+</body>
+</html>
