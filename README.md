@@ -20,6 +20,7 @@ Built by LLMs, for LLMs.
 | **Mobile audio** | Handle unlock gestures, AudioContext | `Star.audio.play('coin')` |
 | **HiDPI canvas** | Manual DPR scaling, coordinate math | Automatic |
 | **iOS Safari** | Debug audio/touch issues for hours | It just works |
+| **Hosting** | Set up hosting + backend for leaderboards | `npx star-sdk deploy` |
 
 ## Quick Start
 
@@ -53,6 +54,11 @@ Star.game(ctx => {
 });
 ```
 
+```bash
+npx star-sdk deploy
+# => Live at https://buildwithstar.com/games/<id>
+```
+
 ## Examples
 
 Complete working games — single HTML files, no build step:
@@ -69,24 +75,29 @@ Complete working games — single HTML files, no build step:
 | [`star-audio`](packages/star-audio) | Mobile-first Web Audio with 17 built-in presets. Handles iOS Safari unlock |
 | [`star-canvas`](packages/star-canvas) | Canvas game loop, DPR scaling, input handling |
 | [`star-leaderboard`](packages/star-leaderboard) | Score submission and leaderboard display. No backend needed |
-| [`star-sdk-cli`](packages/star-sdk-cli) | CLI: register games, manage leaderboards |
+| [`star-sdk-cli`](packages/star-sdk-cli) | CLI: register games, deploy, install AI docs |
 
 ## For AI Agents
 
-This SDK is designed for AI-driven game development. Every package ships with structured documentation optimized for LLM context windows.
+Star SDK is built for LLMs. Tell your agent to "build a game with star-sdk" and it works - the agent discovers the API, registers the game, wires up audio and leaderboards, and deploys. No hand-holding.
 
-- **[AGENTS.md](AGENTS.md)** — Build, test, and contribute instructions
-- **[SKILL.md](packages/star-sdk/skills/star-sdk/SKILL.md)** — Full API reference
-- **[llms.txt](llms.txt)** — Machine-readable documentation index
-- Each package includes a `PROMPT.md` with detailed API docs
-
-### Claude Code
-
-Install the Star SDK skill for inline documentation:
+To give your agent full API docs while it codes:
 
 ```bash
-npx star-sdk install
+npx star-sdk install          # Claude Code (default)
+npx star-sdk install cursor   # Cursor
+npx star-sdk install codex    # OpenAI Codex
+npx star-sdk install windsurf # Windsurf
+npx star-sdk install aider    # Aider
 ```
+
+Reference files for agent development:
+
+| File | Purpose |
+|------|---------|
+| [SKILL.md](packages/star-sdk/skills/star-sdk/SKILL.md) | Full API reference with examples |
+| [AGENTS.md](AGENTS.md) | Build, test, and contribute |
+| [llms.txt](llms.txt) | Machine-readable documentation index |
 
 ## Development
 
