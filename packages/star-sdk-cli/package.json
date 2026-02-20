@@ -1,7 +1,7 @@
 {
   "name": "star-sdk-cli",
-  "version": "0.1.11",
-  "description": "CLI tool for Star SDK - register games and manage leaderboards",
+  "version": "0.1.13",
+  "description": "CLI for Star SDK — register games, install AI docs, and deploy to Star hosting",
   "type": "module",
   "bin": {
     "star-sdk": "./dist/cli.mjs"
@@ -33,9 +33,15 @@
     "sdk",
     "cli",
     "games",
-    "leaderboard"
+    "leaderboard",
+    "deploy",
+    "hosting"
   ],
+  "dependencies": {
+    "archiver": "^7.0.0"
+  },
   "devDependencies": {
+    "@types/archiver": "^6.0.0",
     "tsup": "^8.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.4.5"

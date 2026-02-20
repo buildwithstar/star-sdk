@@ -3,6 +3,7 @@
  *
  * Commands:
  *   init <name>        Register a new game
+ *   deploy [path]      Deploy game to Star hosting
  *   install [agent]    Install Star SDK docs for AI coding agents
  *   docs [topic]       Print API documentation
  *   whoami             Show current configuration
@@ -37,6 +38,8 @@ interface StarConfig {
   name: string;
   email?: string;
   dashboardUrl?: string;
+  deployKey?: string;
+  deployUrl?: string;
 }
 
 // Colors for terminal output
@@ -73,6 +76,7 @@ ${colors.bright}Star SDK CLI${colors.reset} v${VERSION}
 
 ${colors.dim}Commands:${colors.reset}
   ${colors.cyan}init <name>${colors.reset}        Register a new game
+  ${colors.cyan}deploy [path]${colors.reset}      Deploy game to Star hosting
   ${colors.cyan}install [agent]${colors.reset}    Install Star SDK docs for AI coding agents
   ${colors.cyan}docs [topic]${colors.reset}       Print API documentation (default: all docs)
   ${colors.cyan}whoami${colors.reset}             Show current configuration
@@ -95,6 +99,10 @@ ${colors.dim}Examples:${colors.reset}
   ${colors.dim}# Register a new game${colors.reset}
   npx star-sdk init "My Awesome Game"
 
+  ${colors.dim}# Deploy to Star hosting${colors.reset}
+  npx star-sdk deploy              ${colors.dim}# Deploy current directory${colors.reset}
+  npx star-sdk deploy ./dist       ${colors.dim}# Deploy specific directory${colors.reset}
+
   ${colors.dim}# Install for different AI agents${colors.reset}
   npx star-sdk install           ${colors.dim}# Claude Code (default)${colors.reset}
   npx star-sdk install codex     ${colors.dim}# OpenAI Codex${colors.reset}
@@ -107,7 +115,7 @@ ${colors.dim}Examples:${colors.reset}
   npx star-sdk docs audio        ${colors.dim}# Just audio API${colors.reset}
   npx star-sdk docs skill        ${colors.dim}# Just main skill file${colors.reset}
 
-${colors.dim}Learn more:${colors.reset} https://buildwithstar.com/docs
+${colors.dim}Learn more:${colors.reset} https://buildwithstar.com/docs/sdk
 `);
 }
 
@@ -181,6 +189,7 @@ async function initCommand(name: string, email?: string) {
       name: data.name,
       email: email?.trim(),
       dashboardUrl: data.dashboardUrl,
+      deployKey: data.deployKey,
     };
     saveConfig(config);
 
@@ -193,20 +202,20 @@ async function initCommand(name: string, email?: string) {
     log(`${colors.dim}Config saved to${colors.reset} ${colors.bright}.starrc${colors.reset}`);
     log('');
     log(`${colors.dim}Next steps:${colors.reset}`);
-    log(`  1. Install the leaderboard package: ${colors.cyan}yarn add star-leaderboard${colors.reset}`);
-    log(`  2. Submit scores and show the leaderboard`);
+    log(`  1. Add the SDK: ${colors.cyan}npm install star-sdk${colors.reset}`);
+    log(`  2. Build your game, then deploy: ${colors.cyan}npx star-sdk deploy${colors.reset}`);
     log('');
     log(`${colors.dim}Example:${colors.reset}`);
-    log(`  ${colors.cyan}import { createLeaderboard } from 'star-leaderboard';${colors.reset}`);
-    log(`  ${colors.cyan}const leaderboard = createLeaderboard({ gameId: '${data.gameId}' });${colors.reset}`);
-    log(`  ${colors.cyan}leaderboard.submit(1500);${colors.reset}`);
-    log(`  ${colors.cyan}leaderboard.show();${colors.reset}`);
+    log(`  ${colors.cyan}import Star from 'star-sdk';${colors.reset}`);
+    log(`  ${colors.cyan}Star.init({ gameId: '${data.gameId}' });${colors.reset}`);
+    log(`  ${colors.cyan}Star.leaderboard.submit(1500);${colors.reset}`);
+    log(`  ${colors.cyan}Star.leaderboard.show();${colors.reset}`);
     log('');
     log(`${colors.dim}Using an AI coding agent?${colors.reset}`);
-    log(`  ${colors.cyan}npx star-sdk install${colors.reset}        ${colors.dim}Claude Code, Codex, Cursor, Windsurf, Aider${colors.reset}`);
+    log(`  ${colors.cyan}npx star-sdk install${colors.reset}        ${colors.dim}Claude Code, Codex, Cursor, Aider${colors.reset}`);
     log('');
     log(`${colors.dim}Documentation:${colors.reset}`);
-    log(`  ${colors.cyan}https://buildwithstar.com/docs${colors.reset}`);
+    log(`  ${colors.cyan}https://buildwithstar.com/docs/sdk/sdk${colors.reset}`);
     log('');
   } catch (err: any) {
     if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
@@ -239,7 +248,122 @@ function whoamiCommand() {
   if (config.dashboardUrl) {
     log(`  ${colors.dim}Dashboard:${colors.reset}  ${colors.cyan}${config.dashboardUrl}${colors.reset}`);
   }
+  if (config.deployUrl) {
+    log(`  ${colors.dim}Live URL:${colors.reset}   ${colors.cyan}${config.deployUrl}${colors.reset}`);
+  }
+  if (config.deployKey) {
+    log(`  ${colors.dim}Deploy key:${colors.reset} ${colors.dim}${config.deployKey.slice(0, 8)}...${colors.reset}`);
+  }
   log('');
+}
+
+async function deployCommand(dirPath?: string) {
+  const config = loadConfig();
+
+  if (!config) {
+    error('No .starrc found. Run "npx star-sdk init <name>" first.');
+    process.exit(1);
+  }
+
+  if (!config.deployKey) {
+    error('No deploy key found. Re-run "npx star-sdk init <name>" to get one.');
+    process.exit(1);
+  }
+
+  // Resolve directory to deploy
+  const deployDir = dirPath ? path.resolve(dirPath) : process.cwd();
+
+  if (!fs.existsSync(deployDir)) {
+    error(`Directory not found: ${deployDir}`);
+    process.exit(1);
+  }
+
+  if (!fs.statSync(deployDir).isDirectory()) {
+    error(`Not a directory: ${deployDir}`);
+    process.exit(1);
+  }
+
+  // Check for index.html
+  const indexPath = path.join(deployDir, 'index.html');
+  if (!fs.existsSync(indexPath)) {
+    error(`No index.html found in ${deployDir}`);
+    log('');
+    log('Your game needs an index.html file to deploy.');
+    process.exit(1);
+  }
+
+  log(`Deploying ${colors.bright}${config.name}${colors.reset} from ${colors.dim}${deployDir}${colors.reset}`);
+
+  try {
+    // Dynamic import archiver
+    const archiver = (await import('archiver')).default;
+
+    // Create zip buffer
+    const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const archive = archiver('zip', { zlib: { level: 9 } });
+
+      archive.on('data', (chunk: Buffer) => chunks.push(chunk));
+      archive.on('end', () => resolve(Buffer.concat(chunks)));
+      archive.on('error', reject);
+
+      // Add all files from deploy directory, excluding junk
+      archive.glob('**/*', {
+        cwd: deployDir,
+        ignore: ['node_modules/**', '.starrc', '.git/**', '.DS_Store'],
+        dot: false,
+      });
+
+      archive.finalize();
+    });
+
+    log(`  ${colors.dim}Uploading ${(zipBuffer.length / 1024).toFixed(1)} KB...${colors.reset}`);
+
+    const response = await fetch(`${API_BASE}/api/sdk/games/${config.gameId}/deploy`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/zip',
+        'x-deploy-key': config.deployKey,
+      },
+      body: zipBuffer,
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 403) {
+        error(data.error || 'Invalid deploy key. Re-run "npx star-sdk init" to get a new one.');
+      } else if (response.status === 404) {
+        error('Game not found. It may have been deleted.');
+      } else if (response.status === 413) {
+        error(data.error || 'Upload too large (50MB limit).');
+      } else if (response.status === 429) {
+        error(data.error || 'Rate limit exceeded. Try again later.');
+      } else {
+        error(data.error || `Deploy failed (HTTP ${response.status})`);
+      }
+      process.exit(1);
+    }
+
+    const data = await response.json();
+
+    // Save deploy URL to config
+    config.deployUrl = data.url;
+    saveConfig(config);
+
+    log('');
+    success('Deployed successfully!');
+    log('');
+    log(`  ${colors.dim}URL:${colors.reset}    ${colors.cyan}${data.url}${colors.reset}`);
+    log(`  ${colors.dim}Files:${colors.reset}  ${data.files} files, ${data.assets} assets`);
+    log('');
+  } catch (err: any) {
+    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+      error('Could not connect to Star API. Check your internet connection.');
+    } else {
+      error(err.message || 'Deploy failed');
+    }
+    process.exit(1);
+  }
 }
 
 type Agent = 'claude' | 'codex' | 'cursor' | 'windsurf' | 'aider';
@@ -510,6 +634,10 @@ async function main() {
   switch (command) {
     case 'init':
       await initCommand(positional[0], email);
+      break;
+
+    case 'deploy':
+      await deployCommand(positional[0]);
       break;
 
     case 'install': {

@@ -350,12 +350,10 @@ game(({ ctx, width, height, loop, toStagePoint, canvas }) => {
 ### Recipe 5: Complex Game with Canvas + UI + Events (like FLOW)
 
 ```ts
-import { game } from 'star-canvas';
-import { createLeaderboard } from '/star-sdk/v1/leaderboard.js';
+import Star from 'star-sdk';
+Star.init({ gameId: '<gameId from .starrc>' });
 
-const leaderboard = createLeaderboard();
-
-game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
+Star.game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
   let score = 0;
   let state = 'menu';
 
@@ -373,7 +371,7 @@ game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
   // 2. Listen for button clicks - buttons need pointer-events-auto
   on('click', '#leaderboard-btn', (e) => {
     e.stopPropagation();
-    leaderboard.show();
+    Star.leaderboard.show();
   });
 
   // 3. Render UI - buttons need pointer-events-auto to intercept clicks
@@ -424,7 +422,7 @@ game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
   function endGame() {
     state = 'gameover';
     // Submit score to leaderboard
-    leaderboard.submit(score);
+    Star.leaderboard.submit(score);
     updateUI();
   }
 });

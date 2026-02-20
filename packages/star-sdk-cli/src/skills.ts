@@ -226,6 +226,16 @@ Complete working games are in the \`examples/\` directory (also published with t
 - **reaction-time** — Test your reflexes over 5 rounds, DOM-based (no canvas)
 
 Each example is a single HTML file, no build step — imports from esm.sh.
+
+## Deploy
+
+When the game is ready, deploy it with one command:
+
+\`\`\`bash
+npx star-sdk deploy
+\`\`\`
+
+This uploads the game to Star hosting and returns a live URL. Requires \`npx star-sdk init\` to have been run first (which creates the deploy key in \`.starrc\`).
 `;
 
 export const AUDIO_DOCS = `**Installation**

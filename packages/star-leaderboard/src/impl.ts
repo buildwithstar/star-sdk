@@ -116,8 +116,8 @@ export function createLeaderboardImpl(options: LeaderboardOptions = {}): StarLea
         } else if (apiClient) {
           const gid = getGameId();
           if (!gid) {
-            error('gameId is required. Run "npx star-sdk init" to register your game and get a gameId.');
-            return { success: false, error: 'gameId is required. Run "npx star-sdk init" to register your game.' };
+            error('Star SDK: No gameId set. Run "npx star-sdk init" in your terminal, then call Star.init({ gameId: \'<gameId from .starrc>\' }) before using Star.leaderboard.');
+            return { success: false, error: 'No gameId set. Run "npx star-sdk init" then call Star.init({ gameId }) before using leaderboard.' };
           }
           // Use custom playerName if provided, otherwise use persistent default
           const playerName = options?.playerName || getDefaultPlayerName() || undefined;
@@ -147,7 +147,7 @@ export function createLeaderboardImpl(options: LeaderboardOptions = {}): StarLea
       const gid = getGameId();
 
       if (!gid) {
-        error('gameId is required to fetch scores. Run "npx star-sdk init" to register your game and get a gameId.');
+        error('Star SDK: No gameId set. Run "npx star-sdk init" in your terminal, then call Star.init({ gameId: \'<gameId from .starrc>\' }) before using Star.leaderboard.');
         return {
           scores: [],
           timeframe: opts.timeframe ?? 'weekly',
@@ -169,9 +169,13 @@ export function createLeaderboardImpl(options: LeaderboardOptions = {}): StarLea
       if (isPlatform && platformBridge) {
         platformBridge.show();
       } else {
-        // Show fallback UI for local development
+        const gid = getGameId();
+        if (!gid) {
+          error('Star SDK: No gameId set. Run "npx star-sdk init" in your terminal, then call Star.init({ gameId: \'<gameId from .starrc>\' }) before using Star.leaderboard.');
+          return;
+        }
         showFallbackUI({
-          gameId: getGameId(),
+          gameId: gid,
           getScores: instance.getScores.bind(instance),
         });
       }
@@ -181,8 +185,8 @@ export function createLeaderboardImpl(options: LeaderboardOptions = {}): StarLea
       const gid = getGameId();
 
       if (!gid) {
-        error('gameId is required for sharing. Run "npx star-sdk init" to register your game and get a gameId.');
-        return { success: false, error: 'gameId is required. Run "npx star-sdk init" to register your game.' };
+        error('Star SDK: No gameId set. Run "npx star-sdk init" in your terminal, then call Star.init({ gameId: \'<gameId from .starrc>\' }) before using Star.leaderboard.');
+        return { success: false, error: 'No gameId set. Run "npx star-sdk init" then call Star.init({ gameId }) before using leaderboard.' };
       }
 
       if (!apiClient) {

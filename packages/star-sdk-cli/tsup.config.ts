@@ -6,6 +6,7 @@ export default defineConfig({
   dts: false,
   clean: true,
   minify: false,
+  external: ['archiver'],
   banner: {
     js: '#!/usr/bin/env node',
   },
