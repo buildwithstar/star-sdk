@@ -1,8 +1,8 @@
 # Star SDK
 
-Ship browser games with leaderboards, audio, and canvas — no backend needed. One import, works everywhere including iOS Safari.
+Ship browser games with leaderboards, audio, and canvas - no backend needed. Works everywhere including iOS Safari.
 
-Built by LLMs, for LLMs.
+Built by LLMs, for LLMs. Tell your agent to "build a game with star-sdk" and it works - the agent discovers the API, registers the game, wires up audio and leaderboards, and deploys. No hand-holding.
 
 [![npm](https://img.shields.io/npm/v/star-sdk)](https://www.npmjs.com/package/star-sdk)
 [![npm](https://img.shields.io/npm/v/star-audio)](https://www.npmjs.com/package/star-audio)
@@ -79,9 +79,7 @@ Complete working games — single HTML files, no build step:
 
 ## For AI Agents
 
-Star SDK is built for LLMs. Tell your agent to "build a game with star-sdk" and it works - the agent discovers the API, registers the game, wires up audio and leaderboards, and deploys. No hand-holding.
-
-To give your agent full API docs while it codes:
+Give your agent full API docs while it codes:
 
 ```bash
 npx star-sdk install          # Claude Code (default)
