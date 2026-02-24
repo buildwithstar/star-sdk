@@ -63,24 +63,22 @@ game(({ ctx, width, height, on, loop, ui, canvas }) => {
   });
 
   // 2. Render HTML to the safe UI overlay
-  //    UI is interactive by default (scroll, buttons work)
-  //    Adding canvas.addEventListener makes UI click-through automatically
   ui.render(`
     <div class="absolute top-4 left-4 text-white">
-      <button id="start-btn" class="px-4 py-2 bg-blue-500 rounded pointer-events-auto">
+      <button id="start-btn" class="px-4 py-2 bg-blue-500 rounded">
         Click Me
       </button>
     </div>
   `);
 
-  // 3. Listen for button clicks
+  // 3. Listen for button clicks — on() auto-enables pointer-events for the target
   on('click', '#start-btn', () => {
     console.log('Button clicked!');
   });
 
   // 4. For canvas games: listen for taps on canvas
-  //    This automatically makes UI click-through (taps pass through to canvas)
-  //    Buttons with pointer-events-auto still work
+  //    Taps pass through the UI overlay to the canvas layer
+  //    Elements targeted by on() are automatically interactive
   canvas.addEventListener('pointerdown', (e) => {
     console.log('Canvas/screen tapped!', e);
   });
@@ -145,7 +143,7 @@ A safe manager for your HTML overlay, stacked on top of the canvas.
   - `ui.el(selector)`: Scoped `querySelector` for the UI root.
   - `ui.all(selector)`: Scoped `querySelectorAll` for the UI root.
 
-**Auto-detection:** When you add `canvas.addEventListener('pointerdown', ...)`, the SDK automatically makes UI click-through so taps reach the canvas. Buttons with `pointer-events-auto` still work.
+**Auto-detection:** When you add `canvas.addEventListener('pointerdown', ...)`, the SDK automatically makes UI click-through so taps reach the canvas. Elements targeted by `on()` are automatically interactive — no extra CSS classes needed. Native `<button>` and `<a>` elements are also always interactive.
 
 ### Cursor Management
 
@@ -373,13 +371,13 @@ game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
   // 1. Listen for screen taps - this makes UI click-through automatically
   canvas.addEventListener('pointerdown', handleTap);
 
-  // 2. Listen for button clicks - buttons need pointer-events-auto
+  // 2. Listen for button clicks — on() auto-enables pointer-events for the selector
   on('click', '#leaderboard-btn', (e) => {
     e.stopPropagation();
     leaderboard.show();
   });
 
-  // 3. Render UI - buttons need pointer-events-auto to intercept clicks
+  // 3. Render UI — elements targeted by on() are automatically interactive
   let lastState = null;
   let lastScore = -1;
 
@@ -406,7 +404,7 @@ game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
         <div class="h-full flex flex-col items-center justify-center text-white">
           <div class="text-3xl mb-4">GAME OVER</div>
           <div class="text-6xl mb-4">\${score}</div>
-          <button id="leaderboard-btn" class="px-6 py-3 mb-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold shadow-lg shadow-blue-500/20 pointer-events-auto">
+          <button id="leaderboard-btn" class="px-6 py-3 mb-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold shadow-lg shadow-blue-500/20">
             VIEW LEADERBOARD
           </button>
           <div class="text-xl animate-pulse">TAP TO RESTART</div>

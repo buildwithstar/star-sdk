@@ -107,7 +107,7 @@ Star.init({ gameId: '<gameId from .starrc>' });
 
 Star.game(({ ui, on }) => {
   ui.render(`
-    <button id="lb-btn" class="pointer-events-auto">
+    <button id="lb-btn">
       View Leaderboard
     </button>
   `);
@@ -171,7 +171,7 @@ Star.game(({ ctx, width, height, loop, ui, on, canvas }) => {
         <div class="h-full flex flex-col items-center justify-center text-white">
           <div class="text-3xl mb-4">GAME OVER</div>
           <div class="text-6xl mb-4">${score}</div>
-          <button id="lb-btn" class="px-6 py-3 mb-4 bg-purple-600 rounded-lg pointer-events-auto">
+          <button id="lb-btn" class="px-6 py-3 mb-4 bg-purple-600 rounded-lg">
             VIEW LEADERBOARD
           </button>
           <div class="text-xl animate-pulse">TAP TO RESTART</div>

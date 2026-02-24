@@ -495,14 +495,24 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
     onMove: (handler) => { moveHandlers.push(handler); },
     onRelease: (handler) => { releaseHandlers.push(handler); },
     on: (type, selector, handler, options) => {
+      // Auto-enable pointer-events for UI elements matching this selector.
+      // Without this, <div> click targets inside .star-ui (pointer-events: none)
+      // would silently never receive events.
+      if (/^(click|pointer|mouse|touch)/.test(type)) {
+        try {
+          const parts = selector.split(',').map(s => `.star-ui ${s.trim()}`).join(', ');
+          const style = document.createElement('style');
+          style.textContent = `${parts} { pointer-events: auto; }`;
+          document.head.appendChild(style);
+          cleanup.push(() => style.remove());
+        } catch { /* invalid selector — ignore, delegation will just not match */ }
+      }
+
       // Events are delegated on the *document* to catch UI in the overlay
       // and canvas events bubbling up.
       const listener = (ev: Event) => {
         const target = ev.target as Element | null;
         const matched = target?.closest?.(selector);
-        // If it matches a selector, fire.
-        // This works because canvas clicks will bubble to body
-        // and UI clicks will bubble (if 'pointer-events: auto')
         if (matched) {
           handler.call(matched, ev);
         }

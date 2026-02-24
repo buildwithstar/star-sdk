@@ -70,6 +70,72 @@ function info(message: string) {
   console.log(`${colors.blue}ℹ${colors.reset} ${message}`);
 }
 
+// Star packages that may appear as bare imports in game HTML
+const STAR_PACKAGES = ['star-sdk', 'star-canvas', 'star-audio', 'star-leaderboard', 'star-multiplayer'];
+
+/**
+ * Resolve the installed star-sdk version from node_modules.
+ * Returns null if not found.
+ */
+function resolveStarSdkVersion(deployDir: string): string | null {
+  const candidates = [
+    path.join(deployDir, 'node_modules', 'star-sdk', 'package.json'),
+    path.join(process.cwd(), 'node_modules', 'star-sdk', 'package.json'),
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        const pkg = JSON.parse(fs.readFileSync(p, 'utf-8'));
+        if (pkg.version) return pkg.version;
+      }
+    } catch {}
+  }
+  return null;
+}
+
+/**
+ * If the HTML contains bare imports from star-* packages and no importmap,
+ * inject a <script type="importmap"> that maps them to esm.sh CDN URLs.
+ * Returns the (possibly modified) HTML.
+ */
+function injectImportMapIfNeeded(html: string, deployDir: string): string {
+  // Skip if importmap already exists
+  if (/<script\s[^>]*type\s*=\s*["']importmap["'][^>]*>/i.test(html)) {
+    return html;
+  }
+
+  // Check for bare imports from star packages
+  const bareImportPattern = /\bfrom\s+['"](?:star-sdk|star-canvas|star-audio|star-leaderboard|star-multiplayer)['"]/;
+  if (!bareImportPattern.test(html)) {
+    return html;
+  }
+
+  // Build importmap
+  const version = resolveStarSdkVersion(deployDir);
+  const suffix = version ? `@${version}` : '';
+  const imports: Record<string, string> = {};
+  for (const pkg of STAR_PACKAGES) {
+    imports[pkg] = `https://esm.sh/${pkg}${suffix}`;
+  }
+
+  const importmapTag = `<script type="importmap">\n${JSON.stringify({ imports }, null, 2)}\n</script>\n`;
+
+  // Inject before first <script type="module"> (importmaps must precede module scripts)
+  const moduleScriptMatch = html.match(/<script\s[^>]*type\s*=\s*["']module["'][^>]*>/i);
+  if (moduleScriptMatch && moduleScriptMatch.index !== undefined) {
+    return html.slice(0, moduleScriptMatch.index) + importmapTag + html.slice(moduleScriptMatch.index);
+  }
+
+  // Fallback: inject after <head>
+  const headMatch = html.match(/<head[^>]*>/i);
+  if (headMatch && headMatch.index !== undefined) {
+    const insertPos = headMatch.index + headMatch[0].length;
+    return html.slice(0, insertPos) + '\n' + importmapTag + html.slice(insertPos);
+  }
+
+  return html;
+}
+
 function showHelp() {
   log(`
 ${colors.bright}Star SDK CLI${colors.reset} v${VERSION}
@@ -295,6 +361,14 @@ async function deployCommand(dirPath?: string) {
   log(`Deploying ${colors.bright}${config.name}${colors.reset} from ${colors.dim}${deployDir}${colors.reset}`);
 
   try {
+    // Pre-process index.html: inject importmap for bare star-* imports
+    const originalHtml = fs.readFileSync(indexPath, 'utf-8');
+    const processedHtml = injectImportMapIfNeeded(originalHtml, deployDir);
+    const htmlModified = processedHtml !== originalHtml;
+    if (htmlModified) {
+      info('Injected importmap for bare imports (star-sdk → esm.sh)');
+    }
+
     // Dynamic import archiver
     const archiver = (await import('archiver')).default;
 
@@ -307,12 +381,15 @@ async function deployCommand(dirPath?: string) {
       archive.on('end', () => resolve(Buffer.concat(chunks)));
       archive.on('error', reject);
 
-      // Add all files from deploy directory, excluding junk
+      // Add all files from deploy directory, excluding junk (skip index.html — added separately)
       archive.glob('**/*', {
         cwd: deployDir,
-        ignore: ['node_modules/**', '.starrc', '.git/**', '.DS_Store'],
+        ignore: ['node_modules/**', '.starrc', '.git/**', '.DS_Store', 'index.html'],
         dot: false,
       });
+
+      // Add (possibly modified) index.html
+      archive.append(processedHtml, { name: 'index.html' });
 
       archive.finalize();
     });

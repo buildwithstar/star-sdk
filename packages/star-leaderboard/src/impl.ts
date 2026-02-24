@@ -15,7 +15,7 @@ import type {
 import { createPlatformBridge, type PlatformBridge } from './platform';
 import { createApiClient, type ApiClient } from './api';
 import { warn, error } from './utils';
-import { showFallbackUI } from './fallback-ui';
+import { showFallbackUI, showErrorUI } from './fallback-ui';
 
 const PLAYER_ID_STORAGE_KEY = 'star-player-id';
 
@@ -172,6 +172,10 @@ export function createLeaderboardImpl(options: LeaderboardOptions = {}): StarLea
         const gid = getGameId();
         if (!gid) {
           error('Star SDK: No gameId set. Run "npx star-sdk init" in your terminal, then call Star.init({ gameId: \'<gameId from .starrc>\' }) before using Star.leaderboard.');
+          showErrorUI(
+            'Leaderboard not configured',
+            'Run in your terminal:\n\n  npx star-sdk init "Your Game"\n\nThen add to your code:\n\n  Star.init({ gameId: \'<gameId from .starrc>\' })'
+          );
           return;
         }
         showFallbackUI({

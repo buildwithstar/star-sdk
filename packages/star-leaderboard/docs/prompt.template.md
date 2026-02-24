@@ -130,7 +130,7 @@ async function gameOver(finalScore) {
 
 game(({ ui, on }) => {
   ui.render(`
-    <button id="lb-btn" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold text-white shadow-lg shadow-blue-500/20 pointer-events-auto">
+    <button id="lb-btn" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold text-white shadow-lg shadow-blue-500/20">
       View Leaderboard
     </button>
   `);
@@ -197,7 +197,7 @@ game(({ ctx, width, height, loop, ui, on, canvas }) => {
         <div class="h-full flex flex-col items-center justify-center text-white">
           <div class="text-3xl mb-4">GAME OVER</div>
           <div class="text-6xl mb-4">\${score}</div>
-          <button id="lb-btn" class="px-6 py-3 mb-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold shadow-lg shadow-blue-500/20 pointer-events-auto">
+          <button id="lb-btn" class="px-6 py-3 mb-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold shadow-lg shadow-blue-500/20">
             VIEW LEADERBOARD
           </button>
           <div class="text-xl animate-pulse">TAP TO RESTART</div>

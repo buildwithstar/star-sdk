@@ -614,3 +614,65 @@ export function closeFallbackUI(): void {
 export function isFallbackUIOpen(): boolean {
   return currentOverlay !== null;
 }
+
+/**
+ * Show a visible error overlay for configuration issues (e.g., missing gameId).
+ * Reuses the existing leaderboard modal styles.
+ */
+export function showErrorUI(title: string, message: string): void {
+  if (currentOverlay) {
+    currentOverlay.remove();
+    currentOverlay = null;
+  }
+
+  injectStyles();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'star-lb-overlay';
+  currentOverlay = overlay;
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeFallbackUI();
+  });
+
+  const modal = document.createElement('div');
+  modal.className = 'star-lb-modal';
+  modal.addEventListener('click', (e) => e.stopPropagation());
+
+  const gradientTL = document.createElement('div');
+  gradientTL.className = 'star-lb-gradient-tl';
+  modal.appendChild(gradientTL);
+
+  const gradientBR = document.createElement('div');
+  gradientBR.className = 'star-lb-gradient-br';
+  modal.appendChild(gradientBR);
+
+  const content = document.createElement('div');
+  content.style.cssText = 'position: relative; text-align: center; padding: 20px 0;';
+
+  const titleEl = document.createElement('h2');
+  titleEl.className = 'star-lb-title';
+  titleEl.textContent = title;
+  content.appendChild(titleEl);
+
+  const messageEl = document.createElement('pre');
+  messageEl.style.cssText = 'color: #9ca3af; font-size: 14px; white-space: pre-wrap; font-family: ui-monospace, monospace; margin: 16px 0 0; text-align: left; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; line-height: 1.6;';
+  messageEl.textContent = message;
+  content.appendChild(messageEl);
+
+  modal.appendChild(content);
+
+  const buttons = document.createElement('div');
+  buttons.className = 'star-lb-buttons';
+  buttons.style.justifyContent = 'center';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'star-lb-btn star-lb-btn-close';
+  closeBtn.textContent = 'Close';
+  closeBtn.addEventListener('click', closeFallbackUI);
+  buttons.appendChild(closeBtn);
+
+  modal.appendChild(buttons);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+}
