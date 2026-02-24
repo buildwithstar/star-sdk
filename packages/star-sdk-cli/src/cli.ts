@@ -104,11 +104,8 @@ function injectImportMapIfNeeded(html: string, deployDir: string): string {
     return html;
   }
 
-  // Check for bare imports from star packages
-  const bareImportPattern = /\bfrom\s+['"](?:star-sdk|star-canvas|star-audio|star-leaderboard|star-multiplayer)['"]/;
-  if (!bareImportPattern.test(html)) {
-    return html;
-  }
+  // Always inject — if someone is deploying with star-sdk, they need the importmap.
+  // An importmap for unused specifiers is harmless (zero overhead).
 
   // Build importmap
   const version = resolveStarSdkVersion(deployDir);
