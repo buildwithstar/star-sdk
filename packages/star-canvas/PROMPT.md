@@ -44,40 +44,26 @@ Import `game` and wrap your code in it. The `game` function handles DOM readines
 ```ts
 import { game } from 'star-canvas';
 
-game(({ ctx, width, height, on, loop, ui, canvas }) => {
-  // ctx: The 2D canvas context
-  // width, height: The logical size (CSS pixels) - READ-ONLY
-  // on: Safe, delegated event listener
-  // loop: Stable game loop (with dt)
-  // ui: Safe overlay for HTML
-  // canvas: The <canvas> element
+game((g) => {
+  const { ctx, width, height } = g;
+  let score = 0;
 
-  // 1. Draw on the canvas
-  loop((dt) => {
-    ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = '#3b82f6'; // blue-500
-    ctx.fillRect(width / 2 - 25, height / 2 - 25, 50, 50);
-  });
+  // Game loop — input, update, draw
+  g.loop((dt) => {
+    // Input: check g.tap each frame (null if no tap)
+    if (g.tap) {
+      score++;
+    }
 
-  // 2. Render HTML to the safe UI overlay
-  ui.render(`
-    <div class="absolute top-4 left-4 text-white">
-      <button id="start-btn" class="px-4 py-2 bg-blue-500 rounded">
-        Click Me
-      </button>
-    </div>
-  `);
-
-  // 3. Listen for button clicks — on() auto-enables pointer-events for the target
-  on('click', '#start-btn', () => {
-    console.log('Button clicked!');
-  });
-
-  // 4. Gameplay taps — use canvas.addEventListener for game mechanics only
-  //    For buttons/menus, use ui.render() + on() above
-  //    The SDK auto-suppresses this handler when a UI button is clicked
-  canvas.addEventListener('pointerdown', (e) => {
-    console.log('Gameplay tap!', e);
+    // Draw
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#3b82f6';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Score: ${score}`, width / 2, height / 2);
+    ctx.fillText('TAP ANYWHERE', width / 2, height / 2 + 40);
+    ctx.textAlign = 'left';
   });
 });
 ```
@@ -105,9 +91,8 @@ The 2D drawing context. Its transform is already scaled for DPR. You **always dr
 
 The `<canvas>` element itself.
 
-  - **Use this for gameplay input** (e.g., `pointerdown` for tap-to-jump, `pointermove` for aiming).
-  - **For buttons and menus, use `ui.render()` + `on()` instead** — HTML buttons get hover states, touch targets, accessibility, and never conflict with gameplay handlers.
-  - Use ONE `addEventListener` handler with state-based logic. Multiple pointerdown handlers cause ordering bugs.
+  - For drawing, use `ctx` (the 2D context).
+  - For input, use `g.tap` / `g.pointer` / `g.released` in the game loop (see Input Polling below).
 
 ### `width: number` (getter)
 
@@ -142,7 +127,69 @@ A safe manager for your HTML overlay, stacked on top of the canvas.
   - `ui.el(selector)`: Scoped `querySelector` for the UI root.
   - `ui.all(selector)`: Scoped `querySelectorAll` for the UI root.
 
-**Auto-detection:** When you add `canvas.addEventListener('pointerdown', ...)`, the SDK automatically makes UI click-through so taps reach the canvas. Elements targeted by `on()` are automatically interactive — no extra CSS classes needed. Native `<button>` and `<a>` elements are also always interactive.
+### Input Polling: `tap`, `pointer`, `released`
+
+**The standard way to handle input.** Read these in your game loop — no event handlers needed.
+
+```ts
+g.loop((dt) => {
+  if (g.tap) {
+    // Tap/click happened this frame. g.tap.x, g.tap.y are canvas-space.
+  }
+  if (g.pointer.down) {
+    // Pointer is held. g.pointer.x, g.pointer.y track current position.
+  }
+  if (g.released) {
+    // Pointer released this frame.
+  }
+});
+```
+
+- **`g.tap`** — `{ x, y, time } | null`. Non-null on the frame a pointerdown occurs. Cleared next frame.
+- **`g.pointer`** — `{ x, y, down }`. Always available. Tracks current pointer position and held state.
+- **`g.released`** — `{ x, y, time } | null`. Non-null on the frame a pointerup occurs. Cleared next frame.
+- **`g.taps`** — `Array<{ x, y, id, time }>`. All taps this frame (multi-touch).
+- **`g.pointers`** — `Array<{ x, y, id, down }>`. All active pointers (multi-touch).
+
+**Why polling?** One code path with if/else for priority. No conflicting event handlers, no registration order bugs. This is how Unity, Godot, and every game engine handles input.
+
+**Button priority pattern:**
+```ts
+if (g.tap) {
+  if (state === 'gameover' && inRect(g.tap, leaderboardBtn)) {
+    leaderboard.show();             // Checked first — highest priority
+  } else if (state === 'gameover') {
+    startGame();                    // Generic tap — lower priority
+  } else if (state === 'playing') {
+    jump();
+  }
+}
+```
+
+**Hold-to-fire with cooldown:**
+```ts
+let fireCooldown = 0;
+const FIRE_RATE = 0.15; // seconds between shots
+
+g.loop((dt) => {
+  fireCooldown -= dt;
+  if (g.pointer.down && fireCooldown <= 0) {
+    spawnBullet();
+    fireCooldown = FIRE_RATE;  // Slow shotgun: 0.8, fast minigun: 0.05
+  }
+});
+```
+
+**Hover effects for canvas buttons:**
+```ts
+g.loop((dt) => {
+  const hoverLb = state === 'gameover' && inRect(g.pointer, lbBtn);
+  drawButton('VIEW LEADERBOARD', lbBtn, hoverLb ? '#9061f9' : '#7c3aed');
+  g.canvas.style.cursor = hoverLb ? 'pointer' : 'default';
+});
+```
+
+Taps on interactive UI elements (from `on()` or native `<button>`) are automatically suppressed from `g.tap`.
 
 ### Cursor Management
 
@@ -287,7 +334,8 @@ For puzzle games, card games, match-3, mobile-style games - use portrait preset.
 ```ts
 import { game } from 'star-canvas';
 
-game(({ ctx, width, height, loop, canvas, toStagePoint }) => {
+game((g) => {
+  const { ctx, width, height } = g;
   // width = 360, height = 640 (always, with letterboxing)
   const cellSize = 40;
   const gridCols = 8;
@@ -298,12 +346,17 @@ game(({ ctx, width, height, loop, canvas, toStagePoint }) => {
   const gridX = (width - gridWidth) / 2;
   const gridY = 80;
 
-  canvas.addEventListener('pointerdown', (e) => {
-    const { x, y } = toStagePoint(e);
-    // Handle tap on grid...
-  });
+  g.loop((dt) => {
+    // Input
+    if (g.tap) {
+      const col = Math.floor((g.tap.x - gridX) / cellSize);
+      const row = Math.floor((g.tap.y - gridY) / cellSize);
+      if (col >= 0 && col < gridCols && row >= 0 && row < gridRows) {
+        // Handle tap on grid cell...
+      }
+    }
 
-  loop((dt) => {
+    // Draw
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, width, height);
 
@@ -328,16 +381,19 @@ For games that need different dimensions (e.g., pixel art at 320×180).
 ```ts
 import { game } from 'star-canvas';
 
-game(({ ctx, width, height, loop, toStagePoint, canvas }) => {
+game((g) => {
+  const { ctx, width, height } = g;
   // Custom 320×180 resolution (retro pixel art style)
   const player = { x: 160, y: 90 };  // Center
 
-  canvas.addEventListener('pointerdown', (e) => {
-    const { x, y } = toStagePoint(e);
-    console.log('Tapped at:', x, y);  // Always 0-320, 0-180
-  });
+  g.loop((dt) => {
+    // Input — g.tap coords are already in canvas-space (0-320, 0-180)
+    if (g.tap) {
+      player.x = g.tap.x;
+      player.y = g.tap.y;
+    }
 
-  loop((dt) => {
+    // Draw
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, width, height);
 
@@ -347,9 +403,9 @@ game(({ ctx, width, height, loop, toStagePoint, canvas }) => {
 }, { width: 320, height: 180 });  // Custom resolution with letterboxing
 ```
 
-### Recipe 5: Complex Game with Canvas + UI + Events (like FLOW)
+### Recipe 5: Complex Game with Canvas + Leaderboard
 
-**Key pattern:** Canvas for gameplay input, DOM buttons for UI. Never draw buttons on canvas.
+**Key pattern:** All input via `g.tap` in the loop. if/else for priority — check buttons first.
 
 ```ts
 import { game } from 'star-canvas';
@@ -357,77 +413,75 @@ import { createLeaderboard } from 'star-leaderboard';
 
 const leaderboard = createLeaderboard({ gameId: '<gameId from .starrc>' });
 
-game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
+game((g) => {
+  const { ctx, width, height } = g;
   let score = 0;
   let state = 'menu';
 
-  // 1. ONE gameplay tap handler — state-based logic, no button hit-testing
-  canvas.addEventListener('pointerdown', () => {
-    if (state === 'menu') startGame();
-    else if (state === 'playing') {
-      // ... (player float logic) ...
-    }
-  });
+  const lbBtn = { x: width / 2 - 120, y: height / 2 + 20, w: 240, h: 50 };
+  const restartBtn = { x: width / 2 - 120, y: height / 2 + 90, w: 240, h: 50 };
 
-  // 2. DOM button clicks — on() auto-enables pointer-events
-  //    The SDK suppresses the canvas handler when a button is clicked
-  on('click', '#leaderboard-btn', () => leaderboard.show());
-  on('click', '#restart-btn', () => startGame());
-
-  // 3. Render UI — elements targeted by on() are automatically interactive
-  let lastState = null;
-  let lastScore = -1;
-
-  function updateUI() {
-    // CRITICAL: Only render when state/score changes, NOT every frame
-    // Calling ui.render() in the loop breaks buttons (DOM recreation)
-    if (state === lastState && score === lastScore) return;
-    lastState = state;
-    lastScore = score;
-
-    if (state === 'menu') {
-      ui.render(`
-        <div class="h-full flex flex-col items-center justify-center text-white">
-          <h1 class="text-6xl font-bold mb-4">FLOW</h1>
-          <div class="text-2xl animate-pulse">TAP TO START</div>
-        </div>`);
-    } else if (state === 'playing') {
-      ui.render(`
-        <div class="absolute top-8 left-1/2 -translate-x-1/2 text-white">
-          <div class="text-5xl font-bold">\${score}</div>
-        </div>`);
-    } else if (state === 'gameover') {
-      ui.render(`
-        <div class="h-full flex flex-col items-center justify-center text-white">
-          <div class="text-3xl mb-4">GAME OVER</div>
-          <div class="text-6xl mb-4">\${score}</div>
-          <button id="leaderboard-btn" class="px-6 py-3 mb-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold shadow-lg shadow-blue-500/20">
-            VIEW LEADERBOARD
-          </button>
-          <button id="restart-btn" class="px-6 py-3 bg-gray-700 rounded-xl font-bold">
-            PLAY AGAIN
-          </button>
-        </div>`);
-    }
+  function inRect(pt, r) {
+    return pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
   }
 
-  // 4. Call updateUI when state changes (NOT every frame)
-  updateUI();
-
-  // Update when state transitions happen
-  function startGame() {
-    state = 'playing';
-    score = 0;
-    ui.render(''); // Clear game-over buttons
-    updateUI();
+  function drawButton(text, r, color) {
+    ctx.fillStyle = color || '#7c3aed';
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(text, r.x + r.w / 2, r.y + r.h / 2 + 6);
   }
+
+  function startGame() { state = 'playing'; score = 0; }
 
   function endGame() {
     state = 'gameover';
-    // Submit score to leaderboard
     leaderboard.submit(score);
-    updateUI();
   }
+
+  g.loop((dt) => {
+    // --- Input (polling) ---
+    if (g.tap) {
+      if (state === 'gameover') {
+        if (inRect(g.tap, lbBtn)) leaderboard.show();
+        else if (inRect(g.tap, restartBtn)) startGame();
+      } else if (state === 'menu') {
+        startGame();
+      } else if (state === 'playing') {
+        // ... (player jump/action logic) ...
+      }
+    }
+
+    // --- Draw ---
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, width, height);
+
+    if (state === 'menu') {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 48px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('FLOW', width / 2, height / 2 - 20);
+      ctx.font = '24px sans-serif';
+      ctx.fillText('TAP TO START', width / 2, height / 2 + 30);
+    } else if (state === 'playing') {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 48px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(score), width / 2, 60);
+    } else if (state === 'gameover') {
+      ctx.fillStyle = '#fff';
+      ctx.font = '24px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('GAME OVER', width / 2, height / 2 - 60);
+      ctx.font = 'bold 48px sans-serif';
+      ctx.fillText(String(score), width / 2, height / 2 - 10);
+      drawButton('VIEW LEADERBOARD', lbBtn, '#7c3aed');
+      drawButton('PLAY AGAIN', restartBtn, '#374151');
+    }
+    ctx.textAlign = 'left';
+  });
 });
 ```
 

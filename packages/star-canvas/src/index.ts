@@ -87,6 +87,16 @@ export interface GameContext {
   onMove: (handler: InputHandler) => void;
   /** Register handler for pointer release (fires on pointerup). Works anywhere on screen including letterbox. */
   onRelease: (handler: InputHandler) => void;
+  /** Tap this frame (pointerdown). Null if none. Canvas-space coords. Read in your game loop. */
+  readonly tap: { x: number; y: number; time: number } | null;
+  /** Current primary pointer state. Always available, updated on every move. */
+  readonly pointer: { x: number; y: number; down: boolean };
+  /** Release this frame (pointerup). Null if none. Canvas-space coords. */
+  readonly released: { x: number; y: number; time: number } | null;
+  /** All new taps this frame (multi-touch). Empty array if none. */
+  readonly taps: ReadonlyArray<{ x: number; y: number; id: number; time: number }>;
+  /** All active pointers (multi-touch). Empty array if none. */
+  readonly pointers: ReadonlyArray<{ x: number; y: number; id: number; down: boolean }>;
   /** Re-calculates stage size (rarely needed). */
   resize: () => void;
   /** Cleans up all listeners and observers. */
@@ -292,10 +302,17 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
   inputLayer.className = 'star-input';
   document.body.appendChild(inputLayer);
 
-  // Input handler registries for the new onTap/onMove/onRelease API
+  // Input handler registries for the onTap/onMove/onRelease callback API
   const tapHandlers: InputHandler[] = [];
   const moveHandlers: InputHandler[] = [];
   const releaseHandlers: InputHandler[] = [];
+
+  // Polling state — frame-synchronized input (read via g.tap, g.pointer, etc.)
+  let _tap: { x: number; y: number; time: number } | null = null;
+  let _pointer = { x: 0, y: 0, down: false };
+  let _released: { x: number; y: number; time: number } | null = null;
+  let _taps: { x: number; y: number; id: number; time: number }[] = [];
+  const _pointers = new Map<number, { x: number; y: number; id: number; down: boolean }>();
 
   // Proxy canvas.onclick to inputLayer with proper replacement semantics
   let currentOnClickHandler: ((e: Event) => void) | null = null;
@@ -511,6 +528,11 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
     onTap: (handler) => { tapHandlers.push(handler); },
     onMove: (handler) => { moveHandlers.push(handler); },
     onRelease: (handler) => { releaseHandlers.push(handler); },
+    get tap() { return _tap; },
+    get pointer() { return _pointer; },
+    get released() { return _released; },
+    get taps() { return _taps as ReadonlyArray<{ x: number; y: number; id: number; time: number }>; },
+    get pointers() { return Array.from(_pointers.values()) as ReadonlyArray<{ x: number; y: number; id: number; down: boolean }>; },
     on: (type, selector, handler, options) => {
       // Auto-enable pointer-events for UI elements matching this selector.
       // Without this, <div> click targets inside .star-ui (pointer-events: none)
@@ -555,6 +577,10 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
           console.error('[star-canvas] Game loop error:', err);
           // Continue running - let game recover on next frame
         }
+        // Clear per-frame polling state (continuous state like pointer persists)
+        _tap = null;
+        _released = null;
+        _taps = [];
         raf = requestAnimationFrame(frame);
       };
 
@@ -606,19 +632,42 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
     },
   };
 
-  // Wire up input layer event listeners for onTap/onMove/onRelease
-  // Guard onTap only (initiating event) — move/release must always fire for drags
+  // Wire up input layer event listeners for polling + onTap/onMove/onRelease callbacks
   inputLayer.addEventListener('pointerdown', (e) => {
+    const pt = g.toStagePoint(e);
+    // Always update continuous pointer state
+    _pointer = { x: pt.x, y: pt.y, down: true };
+    _pointers.set(e.pointerId, { x: pt.x, y: pt.y, id: e.pointerId, down: true });
+
+    // Guard initiating event — suppress when over interactive UI
     if (isOverUI(e)) return;
-    const point: InputPoint = { ...g.toStagePoint(e), event: e };
+
+    // Per-frame polling state
+    _tap = { x: pt.x, y: pt.y, time: e.timeStamp };
+    _taps.push({ x: pt.x, y: pt.y, id: e.pointerId, time: e.timeStamp });
+
+    // Legacy callback API
+    const point: InputPoint = { ...pt, event: e };
     tapHandlers.forEach(fn => fn(point));
   });
   inputLayer.addEventListener('pointermove', (e) => {
-    const point: InputPoint = { ...g.toStagePoint(e), event: e };
+    const pt = g.toStagePoint(e);
+    _pointer = { x: pt.x, y: pt.y, down: _pointer.down };
+    const existing = _pointers.get(e.pointerId);
+    if (existing) _pointers.set(e.pointerId, { ...existing, x: pt.x, y: pt.y });
+
+    // Legacy callback API
+    const point: InputPoint = { ...pt, event: e };
     moveHandlers.forEach(fn => fn(point));
   });
   inputLayer.addEventListener('pointerup', (e) => {
-    const point: InputPoint = { ...g.toStagePoint(e), event: e };
+    const pt = g.toStagePoint(e);
+    _pointer = { x: pt.x, y: pt.y, down: false };
+    _released = { x: pt.x, y: pt.y, time: e.timeStamp };
+    _pointers.delete(e.pointerId);
+
+    // Legacy callback API
+    const point: InputPoint = { ...pt, event: e };
     releaseHandlers.forEach(fn => fn(point));
   });
 

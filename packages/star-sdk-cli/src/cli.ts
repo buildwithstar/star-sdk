@@ -29,7 +29,7 @@ import * as os from 'os';
 // Bundled skill content (generated at build time)
 import { SKILL_CONTENT, AUDIO_DOCS, CANVAS_DOCS, LEADERBOARD_DOCS } from './skills';
 
-const VERSION = '0.1.0';
+const VERSION = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 const API_BASE = process.env.STAR_API_BASE || 'https://buildwithstar.com';
 const CONFIG_FILE = '.starrc';
 

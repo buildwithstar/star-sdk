@@ -46,27 +46,26 @@ Star.init({ gameId: '<paste gameId from .starrc>' });
 import Star from 'star-sdk';
 Star.init({ gameId: '<gameId from .starrc>' }); // run: npx star-sdk init
 
-Star.game(ctx => {
-  const { canvas, width, height, ctx: c } = ctx;
+Star.game(g => {
+  const { width, height, ctx } = g;
   let score = 0;
 
-  // Preload audio
   Star.audio.preload({ coin: 'coin', jump: 'jump' });
 
-  // Game loop
-  ctx.loop((dt) => {
-    c.fillStyle = '#111827';
-    c.fillRect(0, 0, width, height);
-    c.fillStyle = '#fff';
-    c.font = '24px sans-serif';
-    c.fillText(`Score: ${score}`, 20, 40);
-  });
+  g.loop((dt) => {
+    // Input (polling — check once per frame)
+    if (g.tap) {
+      score += 10;
+      Star.audio.play('coin');
+    }
 
-  // Input
-  canvas.onclick = () => {
-    score += 10;
-    Star.audio.play('coin');
-  };
+    // Draw
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px sans-serif';
+    ctx.fillText(`Score: ${score}`, 20, 40);
+  });
 });
 ```
 
@@ -74,33 +73,44 @@ Star.game(ctx => {
 
 ### Game Over Screen with Leaderboard
 
-Use DOM buttons (via `ui.render()` + `on()`) for all interactive UI — never draw buttons on canvas:
+Use `g.tap` in the loop with if/else for priority — check buttons first, then general tap:
 
 ```javascript
-// UI button handler (register once — survives ui.render calls)
-ctx.on('click', '#lb-btn', () => Star.leaderboard.show());
-ctx.on('click', '#restart-btn', () => startGame());
+const lbBtn = { x: 200, y: 260, w: 240, h: 50 };
+const restartBtn = { x: 200, y: 330, w: 240, h: 50 };
 
-// Gameplay tap handler (single handler, state-based)
-canvas.addEventListener('pointerdown', () => {
-  if (state === 'playing') { jump(); }
+function inRect(tap, r) {
+  return tap.x >= r.x && tap.x <= r.x + r.w && tap.y >= r.y && tap.y <= r.y + r.h;
+}
+
+g.loop((dt) => {
+  // Input
+  if (g.tap) {
+    if (state === 'gameover') {
+      if (inRect(g.tap, lbBtn)) {
+        Star.leaderboard.show();
+      } else if (inRect(g.tap, restartBtn)) {
+        startGame();
+      }
+    } else if (state === 'playing') {
+      jump();
+    } else if (state === 'menu') {
+      startGame();
+    }
+  }
+
+  // Update & Draw ...
+
+  if (state === 'gameover') {
+    // Draw buttons on canvas
+    drawButton(ctx, 'VIEW LEADERBOARD', lbBtn);
+    drawButton(ctx, 'PLAY AGAIN', restartBtn);
+  }
 });
 
 function endGame() {
   state = 'gameover';
   Star.leaderboard.submit(score);
-  ctx.ui.render(`
-    <div class="h-full flex flex-col items-center justify-center text-white">
-      <div class="text-3xl font-bold mb-2">GAME OVER</div>
-      <div class="text-6xl font-bold mb-6">${score}</div>
-      <button id="lb-btn" class="px-6 py-3 mb-4 bg-purple-600 rounded-lg font-bold">
-        VIEW LEADERBOARD
-      </button>
-      <button id="restart-btn" class="px-6 py-3 bg-gray-700 rounded-lg">
-        PLAY AGAIN
-      </button>
-    </div>
-  `);
 }
 ```
 
@@ -136,23 +146,38 @@ Star.audio.preload({ coin: 'coin', jump: 'jump' });
 Star.audio.play('coin');  // Works on mobile, desktop, everywhere
 ```
 
-### Coordinate Handling
+### Hover Effects for Canvas Buttons
+
+`g.pointer` tracks position every frame — use it for hover states:
 
 ```javascript
-canvas.onclick = (e) => {
-  const point = ctx.toStagePoint(e);  // Correct coordinates
-  console.log(point.x, point.y);
-};
+g.loop((dt) => {
+  const hoverLb = state === 'gameover' && inRect(g.pointer, lbBtn);
+  drawButton('VIEW LEADERBOARD', lbBtn, hoverLb ? '#9061f9' : '#7c3aed');
+  g.canvas.style.cursor = hoverLb ? 'pointer' : 'default';
+});
+```
+
+### Coordinate Handling
+
+`g.tap` and `g.pointer` are already in canvas-space coordinates. No conversion needed:
+
+```javascript
+g.loop((dt) => {
+  if (g.tap) {
+    console.log(g.tap.x, g.tap.y);  // Already canvas-space
+  }
+});
 ```
 
 ## Don't Do This
 
 - **Don't** create canvas manually - use `Star.game()`
-- **Don't** use `setInterval` for game loops - use `ctx.loop()`
+- **Don't** use `setInterval` for game loops - use `g.loop()`
 - **Don't** destructure Star - use `Star.audio`, `Star.leaderboard`, etc.
 - **Don't** invent audio preset names - only 17 exist (see audio.md)
-- **Don't** draw buttons on canvas (fillRect + hit-test) — use `ui.render()` with HTML `<button>` elements + `on()` for clicks. Canvas-drawn "buttons" conflict with tap handlers and have no hover/focus states.
-- **Don't** register multiple `canvas.addEventListener('pointerdown', ...)` handlers — use ONE handler with state-based logic. Use `on()` for UI button clicks.
+- **Don't** use `canvas.addEventListener('pointerdown', ...)` for input — use `g.tap` / `g.pointer` / `g.released` in the game loop. Polling prevents conflicting handler bugs.
+- **Don't** register multiple event handlers for different game states — use ONE `if (g.tap)` block with if/else for priority.
 
 ## Audio Presets (Full List)
 
@@ -168,102 +193,120 @@ Only these 17 presets exist:
 import Star from 'star-sdk';
 Star.init({ gameId: '<gameId from .starrc>' }); // run: npx star-sdk init
 
-Star.game(ctx => {
-  const { canvas, width, height, ctx: c, ui, on } = ctx;
+Star.game(g => {
+  const { width, height, ctx } = g;
   let score = 0;
-  let state = 'playing';
+  let state = 'menu';
   let playerY = height / 2;
   let obstacles = [];
+  let spawnTimer = 0;
 
-  Star.audio.preload({
-    jump: 'jump',
-    coin: 'coin',
-    hurt: 'hurt'
-  });
+  Star.audio.preload({ jump: 'jump', coin: 'coin', hurt: 'hurt' });
 
-  // Spawn obstacles
-  setInterval(() => {
-    if (state === 'playing') {
-      obstacles.push({ x: width, y: Math.random() * height, passed: false });
-    }
-  }, 2000);
+  const lbBtn = { x: width / 2 - 120, y: height / 2 + 20, w: 240, h: 50 };
+  const restartBtn = { x: width / 2 - 120, y: height / 2 + 90, w: 240, h: 50 };
 
-  // Gameplay input — ONE handler, state-based
-  canvas.addEventListener('pointerdown', () => {
-    if (state === 'playing') {
-      playerY -= 50;
-      Star.audio.play('jump');
-    }
-  });
+  function inRect(pt, r) {
+    return pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
+  }
 
-  // UI button clicks — use on() for DOM buttons, not canvas hit-testing
-  on('click', '#lb-btn', () => Star.leaderboard.show());
-  on('click', '#restart-btn', () => startGame());
+  function drawButton(text, r) {
+    ctx.fillStyle = '#7c3aed';
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(text, r.x + r.w / 2, r.y + r.h / 2 + 6);
+    ctx.textAlign = 'left';
+  }
 
   function startGame() {
     state = 'playing';
     score = 0;
     playerY = height / 2;
     obstacles = [];
-    ui.render(''); // Clear game-over UI
+    spawnTimer = 0;
   }
 
   function endGame() {
     state = 'gameover';
     Star.audio.play('hurt');
     Star.leaderboard.submit(score);
-    // Game-over UI with DOM buttons (not canvas-drawn)
-    ui.render(`
-      <div class="h-full flex flex-col items-center justify-center text-white">
-        <div class="text-3xl font-bold mb-2">GAME OVER</div>
-        <div class="text-6xl font-bold mb-6">${score}</div>
-        <button id="lb-btn" class="px-6 py-3 mb-4 bg-purple-600 rounded-lg font-bold">
-          VIEW LEADERBOARD
-        </button>
-        <button id="restart-btn" class="px-6 py-3 bg-gray-700 rounded-lg">
-          PLAY AGAIN
-        </button>
-      </div>
-    `);
   }
 
-  ctx.loop((dt) => {
-    if (state !== 'playing') return;
-
-    // Clear
-    c.fillStyle = '#111827';
-    c.fillRect(0, 0, width, height);
-
-    // Update obstacles
-    obstacles.forEach(obs => {
-      obs.x -= 200 * dt;
-      if (!obs.passed && obs.x < 50) {
-        obs.passed = true;
-        score += 10;
-        Star.audio.play('coin');
+  g.loop((dt) => {
+    // --- Input (polling) ---
+    if (g.tap) {
+      if (state === 'menu') {
+        startGame();
+      } else if (state === 'playing') {
+        playerY -= 50;
+        Star.audio.play('jump');
+      } else if (state === 'gameover') {
+        if (inRect(g.tap, lbBtn)) {
+          Star.leaderboard.show();
+        } else if (inRect(g.tap, restartBtn)) {
+          startGame();
+        }
       }
-      if (Math.abs(obs.x - 50) < 20 && Math.abs(obs.y - playerY) < 30) {
-        endGame();
+    }
+
+    // --- Update ---
+    if (state === 'playing') {
+      spawnTimer += dt;
+      if (spawnTimer > 2) {
+        obstacles.push({ x: width, y: Math.random() * height, passed: false });
+        spawnTimer = 0;
       }
-    });
-    obstacles = obstacles.filter(o => o.x > -20);
+      obstacles.forEach(obs => {
+        obs.x -= 200 * dt;
+        if (!obs.passed && obs.x < 50) {
+          obs.passed = true;
+          score += 10;
+          Star.audio.play('coin');
+        }
+        if (Math.abs(obs.x - 50) < 20 && Math.abs(obs.y - playerY) < 30) {
+          endGame();
+        }
+      });
+      obstacles = obstacles.filter(o => o.x > -20);
+    }
 
-    // Draw player
-    c.fillStyle = '#3b82f6';
-    c.beginPath();
-    c.arc(50, playerY, 15, 0, Math.PI * 2);
-    c.fill();
+    // --- Draw ---
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, width, height);
 
-    // Draw obstacles
-    c.fillStyle = '#a855f7';
-    obstacles.forEach(obs => {
-      c.fillRect(obs.x - 10, obs.y - 25, 20, 50);
-    });
+    if (state === 'menu') {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 32px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('TAP TO START', width / 2, height / 2);
+      ctx.textAlign = 'left';
+    } else if (state === 'playing' || state === 'gameover') {
+      ctx.fillStyle = '#3b82f6';
+      ctx.beginPath();
+      ctx.arc(50, playerY, 15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#a855f7';
+      obstacles.forEach(obs => ctx.fillRect(obs.x - 10, obs.y - 25, 20, 50));
+      ctx.fillStyle = '#fff';
+      ctx.font = '24px sans-serif';
+      ctx.fillText(`Score: ${score}`, 20, 40);
+    }
 
-    // Draw score
-    c.fillStyle = '#fff';
-    c.font = '24px sans-serif';
-    c.fillText(`Score: ${score}`, 20, 40);
+    if (state === 'gameover') {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 32px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('GAME OVER', width / 2, height / 2 - 40);
+      ctx.font = 'bold 48px sans-serif';
+      ctx.fillText(score, width / 2, height / 2);
+      ctx.textAlign = 'left';
+      drawButton('VIEW LEADERBOARD', lbBtn);
+      drawButton('PLAY AGAIN', restartBtn);
+    }
   });
 });
 ```
