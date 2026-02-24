@@ -75,7 +75,39 @@ Star.game(ctx => {
 
 ## Common Patterns
 
-### Game Over -> Submit Score -> Show Leaderboard
+### Game Over Screen with Leaderboard
+
+Use DOM buttons (via \`ui.render()\` + \`on()\`) for all interactive UI — never draw buttons on canvas:
+
+\`\`\`javascript
+// UI button handler (register once — survives ui.render calls)
+ctx.on('click', '#lb-btn', () => Star.leaderboard.show());
+ctx.on('click', '#restart-btn', () => startGame());
+
+// Gameplay tap handler (single handler, state-based)
+canvas.addEventListener('pointerdown', () => {
+  if (state === 'playing') { jump(); }
+});
+
+function endGame() {
+  state = 'gameover';
+  Star.leaderboard.submit(score);
+  ctx.ui.render(\`
+    <div class="h-full flex flex-col items-center justify-center text-white">
+      <div class="text-3xl font-bold mb-2">GAME OVER</div>
+      <div class="text-6xl font-bold mb-6">\${score}</div>
+      <button id="lb-btn" class="px-6 py-3 mb-4 bg-purple-600 rounded-lg font-bold">
+        VIEW LEADERBOARD
+      </button>
+      <button id="restart-btn" class="px-6 py-3 bg-gray-700 rounded-lg">
+        PLAY AGAIN
+      </button>
+    </div>
+  \`);
+}
+\`\`\`
+
+### Submit Score Only (No UI)
 
 \`\`\`javascript
 function gameOver(finalScore) {
@@ -122,6 +154,8 @@ canvas.onclick = (e) => {
 - **Don't** use \`setInterval\` for game loops - use \`ctx.loop()\`
 - **Don't** destructure Star - use \`Star.audio\`, \`Star.leaderboard\`, etc.
 - **Don't** invent audio preset names - only 17 exist (see audio.md)
+- **Don't** draw buttons on canvas (fillRect + hit-test) — use \`ui.render()\` with HTML \`<button>\` elements + \`on()\` for clicks. Canvas-drawn "buttons" conflict with tap handlers and have no hover/focus states.
+- **Don't** register multiple \`canvas.addEventListener('pointerdown', ...)\` handlers — use ONE handler with state-based logic. Use \`on()\` for UI button clicks.
 
 ## Audio Presets (Full List)
 
@@ -138,9 +172,9 @@ import Star from 'star-sdk';
 Star.init({ gameId: '<gameId from .starrc>' }); // run: npx star-sdk init
 
 Star.game(ctx => {
-  const { canvas, width, height, ctx: c } = ctx;
+  const { canvas, width, height, ctx: c, ui, on } = ctx;
   let score = 0;
-  let gameOver = false;
+  let state = 'playing';
   let playerY = height / 2;
   let obstacles = [];
 
@@ -152,13 +186,52 @@ Star.game(ctx => {
 
   // Spawn obstacles
   setInterval(() => {
-    if (!gameOver) {
+    if (state === 'playing') {
       obstacles.push({ x: width, y: Math.random() * height, passed: false });
     }
   }, 2000);
 
+  // Gameplay input — ONE handler, state-based
+  canvas.addEventListener('pointerdown', () => {
+    if (state === 'playing') {
+      playerY -= 50;
+      Star.audio.play('jump');
+    }
+  });
+
+  // UI button clicks — use on() for DOM buttons, not canvas hit-testing
+  on('click', '#lb-btn', () => Star.leaderboard.show());
+  on('click', '#restart-btn', () => startGame());
+
+  function startGame() {
+    state = 'playing';
+    score = 0;
+    playerY = height / 2;
+    obstacles = [];
+    ui.render(''); // Clear game-over UI
+  }
+
+  function endGame() {
+    state = 'gameover';
+    Star.audio.play('hurt');
+    Star.leaderboard.submit(score);
+    // Game-over UI with DOM buttons (not canvas-drawn)
+    ui.render(\`
+      <div class="h-full flex flex-col items-center justify-center text-white">
+        <div class="text-3xl font-bold mb-2">GAME OVER</div>
+        <div class="text-6xl font-bold mb-6">\${score}</div>
+        <button id="lb-btn" class="px-6 py-3 mb-4 bg-purple-600 rounded-lg font-bold">
+          VIEW LEADERBOARD
+        </button>
+        <button id="restart-btn" class="px-6 py-3 bg-gray-700 rounded-lg">
+          PLAY AGAIN
+        </button>
+      </div>
+    \`);
+  }
+
   ctx.loop((dt) => {
-    if (gameOver) return;
+    if (state !== 'playing') return;
 
     // Clear
     c.fillStyle = '#111827';
@@ -167,24 +240,15 @@ Star.game(ctx => {
     // Update obstacles
     obstacles.forEach(obs => {
       obs.x -= 200 * dt;
-
-      // Score when passed
       if (!obs.passed && obs.x < 50) {
         obs.passed = true;
         score += 10;
         Star.audio.play('coin');
       }
-
-      // Collision
       if (Math.abs(obs.x - 50) < 20 && Math.abs(obs.y - playerY) < 30) {
-        gameOver = true;
-        Star.audio.play('hurt');
-        Star.leaderboard.submit(score);
-        Star.leaderboard.show();
+        endGame();
       }
     });
-
-    // Remove off-screen
     obstacles = obstacles.filter(o => o.x > -20);
 
     // Draw player
@@ -204,14 +268,6 @@ Star.game(ctx => {
     c.font = '24px sans-serif';
     c.fillText(\`Score: \${score}\`, 20, 40);
   });
-
-  // Jump on click/tap
-  canvas.onclick = () => {
-    if (!gameOver) {
-      playerY -= 50;
-      Star.audio.play('jump');
-    }
-  };
 });
 \`\`\`
 
@@ -433,11 +489,11 @@ game(({ ctx, width, height, on, loop, ui, canvas }) => {
     console.log('Button clicked!');
   });
 
-  // 4. For canvas games: listen for taps on canvas
-  //    Taps pass through the UI overlay to the canvas layer
-  //    Elements targeted by on() are automatically interactive
+  // 4. Gameplay taps — use canvas.addEventListener for game mechanics only
+  //    For buttons/menus, use ui.render() + on() above
+  //    The SDK auto-suppresses this handler when a UI button is clicked
   canvas.addEventListener('pointerdown', (e) => {
-    console.log('Canvas/screen tapped!', e);
+    console.log('Gameplay tap!', e);
   });
 });
 \`\`\`
@@ -465,7 +521,9 @@ The 2D drawing context. Its transform is already scaled for DPR. You **always dr
 
 The \`<canvas>\` element itself.
 
-  - **Use this for gameplay input listeners** (e.g., \`pointerdown\`, \`pointermove\`).
+  - **Use this for gameplay input** (e.g., \`pointerdown\` for tap-to-jump, \`pointermove\` for aiming).
+  - **For buttons and menus, use \`ui.render()\` + \`on()\` instead** — HTML buttons get hover states, touch targets, accessibility, and never conflict with gameplay handlers.
+  - Use ONE \`addEventListener\` handler with state-based logic. Multiple pointerdown handlers cause ordering bugs.
 
 ### \`width: number\` (getter)
 
@@ -707,6 +765,8 @@ game(({ ctx, width, height, loop, toStagePoint, canvas }) => {
 
 ### Recipe 5: Complex Game with Canvas + UI + Events (like FLOW)
 
+**Key pattern:** Canvas for gameplay input, DOM buttons for UI. Never draw buttons on canvas.
+
 \`\`\`ts
 import { game } from 'star-canvas';
 import { createLeaderboard } from 'star-leaderboard';
@@ -717,22 +777,18 @@ game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
   let score = 0;
   let state = 'menu';
 
-  function handleTap() {
-    if (state === 'menu' || state === 'gameover') {
-      startGame();
-    } else if (state === 'playing') {
+  // 1. ONE gameplay tap handler — state-based logic, no button hit-testing
+  canvas.addEventListener('pointerdown', () => {
+    if (state === 'menu') startGame();
+    else if (state === 'playing') {
       // ... (player float logic) ...
     }
-  }
-
-  // 1. Listen for screen taps - this makes UI click-through automatically
-  canvas.addEventListener('pointerdown', handleTap);
-
-  // 2. Listen for button clicks — on() auto-enables pointer-events for the selector
-  on('click', '#leaderboard-btn', (e) => {
-    e.stopPropagation();
-    leaderboard.show();
   });
+
+  // 2. DOM button clicks — on() auto-enables pointer-events
+  //    The SDK suppresses the canvas handler when a button is clicked
+  on('click', '#leaderboard-btn', () => leaderboard.show());
+  on('click', '#restart-btn', () => startGame());
 
   // 3. Render UI — elements targeted by on() are automatically interactive
   let lastState = null;
@@ -764,7 +820,9 @@ game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
           <button id="leaderboard-btn" class="px-6 py-3 mb-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold shadow-lg shadow-blue-500/20">
             VIEW LEADERBOARD
           </button>
-          <div class="text-xl animate-pulse">TAP TO RESTART</div>
+          <button id="restart-btn" class="px-6 py-3 bg-gray-700 rounded-xl font-bold">
+            PLAY AGAIN
+          </button>
         </div>\`);
     }
   }
@@ -776,6 +834,7 @@ game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
   function startGame() {
     state = 'playing';
     score = 0;
+    ui.render(''); // Clear game-over buttons
     updateUI();
   }
 

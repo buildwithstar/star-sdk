@@ -76,11 +76,11 @@ game(({ ctx, width, height, on, loop, ui, canvas }) => {
     console.log('Button clicked!');
   });
 
-  // 4. For canvas games: listen for taps on canvas
-  //    Taps pass through the UI overlay to the canvas layer
-  //    Elements targeted by on() are automatically interactive
+  // 4. Gameplay taps — use canvas.addEventListener for game mechanics only
+  //    For buttons/menus, use ui.render() + on() above
+  //    The SDK auto-suppresses this handler when a UI button is clicked
   canvas.addEventListener('pointerdown', (e) => {
-    console.log('Canvas/screen tapped!', e);
+    console.log('Gameplay tap!', e);
   });
 });
 ```
@@ -108,7 +108,9 @@ The 2D drawing context. Its transform is already scaled for DPR. You **always dr
 
 The `<canvas>` element itself.
 
-  - **Use this for gameplay input listeners** (e.g., `pointerdown`, `pointermove`).
+  - **Use this for gameplay input** (e.g., `pointerdown` for tap-to-jump, `pointermove` for aiming).
+  - **For buttons and menus, use `ui.render()` + `on()` instead** — HTML buttons get hover states, touch targets, accessibility, and never conflict with gameplay handlers.
+  - Use ONE `addEventListener` handler with state-based logic. Multiple pointerdown handlers cause ordering bugs.
 
 ### `width: number` (getter)
 
@@ -350,6 +352,8 @@ game(({ ctx, width, height, loop, toStagePoint, canvas }) => {
 
 ### Recipe 5: Complex Game with Canvas + UI + Events (like FLOW)
 
+**Key pattern:** Canvas for gameplay input, DOM buttons for UI. Never draw buttons on canvas.
+
 ```ts
 {{{ SdkImportStatement }}}
 {{{ SdkImport:star-leaderboard }}}
@@ -360,22 +364,18 @@ game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
   let score = 0;
   let state = 'menu';
 
-  function handleTap() {
-    if (state === 'menu' || state === 'gameover') {
-      startGame();
-    } else if (state === 'playing') {
+  // 1. ONE gameplay tap handler — state-based logic, no button hit-testing
+  canvas.addEventListener('pointerdown', () => {
+    if (state === 'menu') startGame();
+    else if (state === 'playing') {
       // ... (player float logic) ...
     }
-  }
-
-  // 1. Listen for screen taps - this makes UI click-through automatically
-  canvas.addEventListener('pointerdown', handleTap);
-
-  // 2. Listen for button clicks — on() auto-enables pointer-events for the selector
-  on('click', '#leaderboard-btn', (e) => {
-    e.stopPropagation();
-    leaderboard.show();
   });
+
+  // 2. DOM button clicks — on() auto-enables pointer-events
+  //    The SDK suppresses the canvas handler when a button is clicked
+  on('click', '#leaderboard-btn', () => leaderboard.show());
+  on('click', '#restart-btn', () => startGame());
 
   // 3. Render UI — elements targeted by on() are automatically interactive
   let lastState = null;
@@ -407,7 +407,9 @@ game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
           <button id="leaderboard-btn" class="px-6 py-3 mb-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold shadow-lg shadow-blue-500/20">
             VIEW LEADERBOARD
           </button>
-          <div class="text-xl animate-pulse">TAP TO RESTART</div>
+          <button id="restart-btn" class="px-6 py-3 bg-gray-700 rounded-xl font-bold">
+            PLAY AGAIN
+          </button>
         </div>`);
     }
   }
@@ -419,6 +421,7 @@ game(({ ctx, width, height, loop, ui, on, canvas, toStagePoint }) => {
   function startGame() {
     state = 'playing';
     score = 0;
+    ui.render(''); // Clear game-over buttons
     updateUI();
   }
 
