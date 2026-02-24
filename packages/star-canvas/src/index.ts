@@ -311,7 +311,7 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
       }
       currentOnClickHandler = fn;
       if (fn) {
-        onClickListener = (e) => fn.call(canvas, e);
+        onClickListener = (e) => { if (!isOverUI(e)) fn.call(canvas, e); };
         inputLayer.addEventListener('click', onClickListener);
       }
     },
@@ -322,13 +322,30 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
   const originalRemoveEventListener = canvas.removeEventListener.bind(canvas);
   const listenerMap = new WeakMap<EventListenerOrEventListenerObject, EventListener>();
 
+  // Check if the event point is over an interactive UI element.
+  // If so, the UI should handle it — suppress the canvas/input layer handler.
+  // Only used for initiating events (down/start/click), not move/up/end,
+  // to avoid breaking drags that cross over UI elements.
+  function isOverUI(e: Event): boolean {
+    const pe = e as PointerEvent;
+    if (pe.clientX == null || pe.clientY == null) return false;
+    const el = document.elementFromPoint(pe.clientX, pe.clientY);
+    return el !== null && el !== uiRoot && uiRoot.contains(el);
+  }
+
+  const INITIATING_EVENTS = /^(click|pointerdown|mousedown|touchstart)$/;
+
   canvas.addEventListener = function(
     type: string,
     listener: EventListenerOrEventListenerObject,
     options?: boolean | AddEventListenerOptions
   ) {
     if (/^(click|pointer|mouse|touch)/.test(type) && typeof listener === 'function') {
-      const wrappedListener = ((e: Event) => (listener as EventListener).call(canvas, e)) as EventListener;
+      const guard = INITIATING_EVENTS.test(type);
+      const wrappedListener = ((e: Event) => {
+        if (guard && isOverUI(e)) return;
+        (listener as EventListener).call(canvas, e);
+      }) as EventListener;
       listenerMap.set(listener, wrappedListener);
       inputLayer.addEventListener(type, wrappedListener, options);
     } else {
@@ -590,7 +607,9 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
   };
 
   // Wire up input layer event listeners for onTap/onMove/onRelease
+  // Guard onTap only (initiating event) — move/release must always fire for drags
   inputLayer.addEventListener('pointerdown', (e) => {
+    if (isOverUI(e)) return;
     const point: InputPoint = { ...g.toStagePoint(e), event: e };
     tapHandlers.forEach(fn => fn(point));
   });

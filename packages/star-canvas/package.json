@@ -1,6 +1,6 @@
 {
   "name": "star-canvas",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": false,
   "description": "Canvas game utilities for reliable game initialization - part of Star SDK.",
   "type": "module",
