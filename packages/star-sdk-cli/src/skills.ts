@@ -117,6 +117,17 @@ function endGame() {
 }
 \`\`\`
 
+### Submit with Player Name (Arcade Style)
+
+Let players enter their name on game over — classic arcade feel. If skipped, a guest name is auto-generated.
+
+\`\`\`javascript
+Star.leaderboard.submit(score, { playerName: 'ACE' });  // Custom name
+Star.leaderboard.submit(score);                          // Auto guest name
+\`\`\`
+
+Collect the name on game over using \`g.ui.render()\` for an input field. See \`leaderboard.md\` Pattern 4.
+
 ### Submit Score Only (No UI)
 
 \`\`\`javascript
@@ -583,6 +594,7 @@ A safe manager for your HTML overlay, stacked on top of the canvas.
   - \`ui.render(html: string)\`: **Use this** to set your UI. It's safe and won't destroy the canvas.
     - Automatically skips updates if HTML is unchanged (safe to call in loop for static content)
     - For best performance with dynamic content (score), only call when values actually change
+    - **Positioning:** The UI overlay covers the full viewport, not just the letterboxed game area. Use percentage-based positioning (e.g., \`top: 50%; left: 50%; transform: translate(-50%, -50%)\`) to stay centered within the visible area. Fixed offsets like \`bottom: 18px\` may land in the letterbox bars on some screen sizes.
   - \`ui.el(selector)\`: Scoped \`querySelector\` for the UI root.
   - \`ui.all(selector)\`: Scoped \`querySelectorAll\` for the UI root.
 
@@ -1268,10 +1280,11 @@ game(({ ctx, width, height, loop, ui, on, canvas }) => {
 
 **Core Methods:**
 \`\`\`javascript
-leaderboard.submit(score)       // Submit score, returns Promise<{ success, rank, scoreId }>
-leaderboard.show()              // Show leaderboard UI
-leaderboard.getScores(options)  // Fetch scores for custom UI
-leaderboard.share(options)      // Generate shareable link
+leaderboard.submit(score)                      // Submit score (guest name auto-generated)
+leaderboard.submit(score, { playerName })      // Submit with custom player name
+leaderboard.show()                             // Show leaderboard UI
+leaderboard.getScores(options)                 // Fetch scores for custom UI
+leaderboard.share(options)                     // Generate shareable link
 \`\`\`
 
 **Properties:**
@@ -1344,7 +1357,20 @@ game(({ ui, on }) => {
 });
 \`\`\`
 
-### Pattern 4: Custom Leaderboard UI
+### Pattern 4: Custom Player Names
+
+Players can set their own name for the leaderboard:
+
+\`\`\`javascript
+leaderboard.submit(score, { playerName: 'ACE' });  // Custom name
+leaderboard.submit(score);                          // Auto guest name
+\`\`\`
+
+If \`playerName\` is not provided, a guest name like "Guest1234" is auto-generated.
+
+A natural place to collect the name is on the game over screen (arcade-style "enter your initials"). Use \`ui.render()\` for the input field and \`on()\` for handlers. Call \`submitScore()\` before \`show()\` or \`startGame()\` so the score saves even if the player skips the name input. Store \`playerName\` outside the loop so it persists across rounds.
+
+### Pattern 5: Custom Leaderboard UI
 
 \`\`\`javascript
 import { createLeaderboard } from 'star-leaderboard';
@@ -1368,7 +1394,7 @@ async function showCustomLeaderboard() {
 }
 \`\`\`
 
-### Pattern 5: Full Game Example
+### Pattern 6: Full Game Example
 
 \`\`\`javascript
 import { createLeaderboard } from 'star-leaderboard';
@@ -1376,7 +1402,8 @@ import { game } from 'star-canvas';
 
 const leaderboard = createLeaderboard({ gameId: '<gameId from .starrc>' });
 
-game(({ ctx, width, height, loop, ui, on, canvas }) => {
+game((g) => {
+  const { ctx, width, height, ui, on } = g;
   let score = 0;
   let state = 'menu';
 
@@ -1413,11 +1440,10 @@ game(({ ctx, width, height, loop, ui, on, canvas }) => {
     leaderboard.show();
   });
 
-  canvas.addEventListener('pointerdown', () => {
-    if (state === 'menu' || state === 'gameover') startGame();
-  });
-
-  loop((dt) => {
+  g.loop((dt) => {
+    if (g.tap) {
+      if (state === 'menu' || state === 'gameover') startGame();
+    }
     // Game logic...
   });
 });
@@ -1482,4 +1508,4 @@ leaderboard.submit(reactionTimeMs);
 
 4. **Don't store leaderboard state** - Just call the SDK methods when needed. The SDK handles caching.
 
-5. **Works for guests** - Guests get a generated name like "Guest1234". They can sign in later to claim scores.`;
+5. **Works for guests** - Guests get an auto-generated name like "Guest1234". Pass \`{ playerName }\` to let players choose their own name.`;

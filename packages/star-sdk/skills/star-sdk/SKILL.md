@@ -114,6 +114,17 @@ function endGame() {
 }
 ```
 
+### Submit with Player Name (Arcade Style)
+
+Let players enter their name on game over — classic arcade feel. If skipped, a guest name is auto-generated.
+
+```javascript
+Star.leaderboard.submit(score, { playerName: 'ACE' });  // Custom name
+Star.leaderboard.submit(score);                          // Auto guest name
+```
+
+Collect the name on game over using `g.ui.render()` for an input field. See `leaderboard.md` Pattern 4.
+
 ### Submit Score Only (No UI)
 
 ```javascript

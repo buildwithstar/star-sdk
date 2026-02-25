@@ -1,6 +1,6 @@
 {
   "name": "star-sdk-cli",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "description": "CLI for Star SDK — register games, install AI docs, and deploy to Star hosting",
   "type": "module",
   "bin": {

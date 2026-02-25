@@ -66,10 +66,11 @@ game(({ ctx, width, height, loop, ui, on, canvas }) => {
 
 **Core Methods:**
 ```javascript
-leaderboard.submit(score)       // Submit score, returns Promise<{ success, rank, scoreId }>
-leaderboard.show()              // Show leaderboard UI
-leaderboard.getScores(options)  // Fetch scores for custom UI
-leaderboard.share(options)      // Generate shareable link
+leaderboard.submit(score)                      // Submit score (guest name auto-generated)
+leaderboard.submit(score, { playerName })      // Submit with custom player name
+leaderboard.show()                             // Show leaderboard UI
+leaderboard.getScores(options)                 // Fetch scores for custom UI
+leaderboard.share(options)                     // Generate shareable link
 ```
 
 **Properties:**
@@ -142,7 +143,20 @@ game(({ ui, on }) => {
 });
 ```
 
-### Pattern 4: Custom Leaderboard UI
+### Pattern 4: Custom Player Names
+
+Players can set their own name for the leaderboard:
+
+```javascript
+leaderboard.submit(score, { playerName: 'ACE' });  // Custom name
+leaderboard.submit(score);                          // Auto guest name
+```
+
+If `playerName` is not provided, a guest name like "Guest1234" is auto-generated.
+
+A natural place to collect the name is on the game over screen (arcade-style "enter your initials"). Use `ui.render()` for the input field and `on()` for handlers. Call `submitScore()` before `show()` or `startGame()` so the score saves even if the player skips the name input. Store `playerName` outside the loop so it persists across rounds.
+
+### Pattern 5: Custom Leaderboard UI
 
 ```javascript
 {{{ SdkImportStatement }}}
@@ -166,7 +180,7 @@ async function showCustomLeaderboard() {
 }
 ```
 
-### Pattern 5: Full Game Example
+### Pattern 6: Full Game Example
 
 ```javascript
 {{{ SdkImportStatement }}}
@@ -174,7 +188,8 @@ async function showCustomLeaderboard() {
 
 {{{ LeaderboardInit }}}
 
-game(({ ctx, width, height, loop, ui, on, canvas }) => {
+game((g) => {
+  const { ctx, width, height, ui, on } = g;
   let score = 0;
   let state = 'menu';
 
@@ -211,11 +226,10 @@ game(({ ctx, width, height, loop, ui, on, canvas }) => {
     leaderboard.show();
   });
 
-  canvas.addEventListener('pointerdown', () => {
-    if (state === 'menu' || state === 'gameover') startGame();
-  });
-
-  loop((dt) => {
+  g.loop((dt) => {
+    if (g.tap) {
+      if (state === 'menu' || state === 'gameover') startGame();
+    }
     // Game logic...
   });
 });
@@ -296,4 +310,4 @@ leaderboard.submit(reactionTimeMs);
 
 4. **Don't store leaderboard state** - Just call the SDK methods when needed. The SDK handles caching.
 
-5. **Works for guests** - Guests get a generated name like "Guest1234". They can sign in later to claim scores.
+5. **Works for guests** - Guests get an auto-generated name like "Guest1234". Pass `{ playerName }` to let players choose their own name.

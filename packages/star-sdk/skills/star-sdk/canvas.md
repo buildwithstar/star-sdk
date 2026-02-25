@@ -122,6 +122,7 @@ A safe manager for your HTML overlay, stacked on top of the canvas.
 
   - `ui.root`: The `<div>` element for your UI. It is **interactive by default** (standard HTML behavior - scroll, buttons work).
   - `ui.render(html: string)`: **Use this** to set your UI. It's safe and won't destroy the canvas.
+    - **Positioning:** The UI overlay covers the full viewport, not just the letterboxed game area. Use percentage-based positioning (e.g., `top: 50%; left: 50%; transform: translate(-50%, -50%)`) to stay centered within the visible area. Fixed offsets like `bottom: 18px` may land in the letterbox bars on some screen sizes.
     - Automatically skips updates if HTML is unchanged (safe to call in loop for static content)
     - For best performance with dynamic content (score), only call when values actually change
   - `ui.el(selector)`: Scoped `querySelector` for the UI root.

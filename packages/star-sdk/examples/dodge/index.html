@@ -63,8 +63,8 @@
       success: 'success',
     });
 
-    Star.game(ctx => {
-      const { canvas, width, height, ctx: c } = ctx;
+    Star.game(g => {
+      const { canvas, width, height, ctx: c } = g;
 
       // Player
       let playerX = width / 2;
@@ -80,12 +80,10 @@
       let spawnInterval = 0.8;
       let fallSpeed = 200;
 
-      // Input
+      // Input — keyboard (no polling equivalent for keys)
       let moveLeft = false;
       let moveRight = false;
-      let touchX = null;
 
-      // Keyboard
       document.addEventListener('keydown', e => {
         if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft = true;
         if (e.key === 'ArrowRight' || e.key === 'd') moveRight = true;
@@ -95,17 +93,6 @@
         if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft = false;
         if (e.key === 'ArrowRight' || e.key === 'd') moveRight = false;
       });
-
-      // Touch — player follows finger
-      canvas.addEventListener('touchstart', e => {
-        e.preventDefault();
-        touchX = e.touches[0].clientX;
-      });
-      canvas.addEventListener('touchmove', e => {
-        e.preventDefault();
-        touchX = e.touches[0].clientX;
-      });
-      canvas.addEventListener('touchend', () => { touchX = null; });
 
       const overlay = document.getElementById('gameOverlay');
       const finalScoreEl = document.getElementById('finalScore');
@@ -131,13 +118,12 @@
         fallSpeed = 200;
       }
 
-      ctx.loop(dt => {
+      g.loop(dt => {
         // -- Update --
         if (!gameOver) {
-          // Move player
-          if (touchX !== null) {
-            const target = touchX;
-            const diff = target - playerX;
+          // Move player — touch/mouse follows pointer, keyboard uses arrows
+          if (g.pointer.down) {
+            const diff = g.pointer.x - playerX;
             playerX += Math.sign(diff) * Math.min(Math.abs(diff), speed * dt);
           } else {
             if (moveLeft) playerX -= speed * dt;

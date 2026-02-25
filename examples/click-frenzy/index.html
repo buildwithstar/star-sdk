@@ -266,38 +266,13 @@
       }, 50);
     }
 
-    async function endGame() {
-      clearInterval(timerInterval);
-      state = 'ended';
-      Star.audio.play('success');
+    let scoreSubmitted = false;
 
-      const savedName = localStorage.getItem('star-player-name') || '';
-
-      app.innerHTML = `
-        <h1>Click Frenzy</h1>
-        <p class="subtitle">Time's up!</p>
-        <div class="result">
-          <div class="result-score">${score}</div>
-          <div class="result-label">clicks in ${GAME_DURATION} seconds</div>
-          <input type="text" id="nameInput" class="name-input" placeholder="Your name" maxlength="20" value="${savedName}">
-          <div class="rank-info" id="rankInfo">Submitting score...</div>
-          <div class="btn-row">
-            <button class="action-btn play-again-btn" id="againBtn">Play Again</button>
-            <button class="action-btn leaderboard-btn" id="lbBtn">Leaderboard</button>
-          </div>
-        </div>
-      `;
-
-      document.getElementById('againBtn').addEventListener('pointerdown', () => {
-        state = 'idle';
-        render();
-      });
-
-      document.getElementById('lbBtn').addEventListener('pointerdown', () => {
-        Star.leaderboard.show();
-      });
-
-      const name = document.getElementById('nameInput').value.trim();
+    async function submitScore() {
+      if (scoreSubmitted) return;
+      scoreSubmitted = true;
+      const nameInput = document.getElementById('nameInput');
+      const name = nameInput ? nameInput.value.trim() : '';
       if (name) localStorage.setItem('star-player-name', name);
       const result = await Star.leaderboard.submit(score, name ? { playerName: name } : undefined);
       const rankInfo = document.getElementById('rankInfo');
@@ -310,6 +285,46 @@
           rankInfo.textContent = '';
         }
       }
+    }
+
+    function endGame() {
+      clearInterval(timerInterval);
+      state = 'ended';
+      scoreSubmitted = false;
+      Star.audio.play('success');
+
+      const savedName = localStorage.getItem('star-player-name') || '';
+
+      app.innerHTML = `
+        <h1>Click Frenzy</h1>
+        <p class="subtitle">Time's up!</p>
+        <div class="result">
+          <div class="result-score">${score}</div>
+          <div class="result-label">clicks in ${GAME_DURATION} seconds</div>
+          <input type="text" id="nameInput" class="name-input" placeholder="Your name" maxlength="20" value="${savedName}">
+          <div class="rank-info" id="rankInfo"></div>
+          <div class="btn-row">
+            <button class="action-btn play-again-btn" id="againBtn">Play Again</button>
+            <button class="action-btn leaderboard-btn" id="lbBtn">Leaderboard</button>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('againBtn').addEventListener('pointerdown', () => {
+        submitScore();
+        state = 'idle';
+        render();
+      });
+
+      document.getElementById('lbBtn').addEventListener('pointerdown', () => {
+        submitScore();
+        Star.leaderboard.show();
+      });
+
+      // Submit on Enter key in name input
+      document.getElementById('nameInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitScore();
+      });
     }
 
     Star.audio.preload({ click: 'click', success: 'success' });
