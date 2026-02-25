@@ -11,6 +11,9 @@ export default defineConfig({
   minify: true,
   sourcemap: false,
   splitting: false,  // Keep each file self-contained for direct browser use
+  define: {
+    '__PLATFORM__': process.env.STAR_PLATFORM === 'true' ? 'true' : 'false',
+  },
   outExtension({ format }) {
     return {
       js: format === 'esm' ? '.mjs' : '.cjs',

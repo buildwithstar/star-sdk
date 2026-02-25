@@ -76,8 +76,8 @@ Star.game(g => {
 Use `g.tap` in the loop with if/else for priority — check buttons first, then general tap:
 
 ```javascript
-const lbBtn = { x: 200, y: 260, w: 240, h: 50 };
-const restartBtn = { x: 200, y: 330, w: 240, h: 50 };
+const lbBtn = { x: width / 2 - 120, y: height / 2 + 20, w: 240, h: 50 };
+const restartBtn = { x: width / 2 - 120, y: height / 2 + 90, w: 240, h: 50 };
 
 function inRect(tap, r) {
   return tap.x >= r.x && tap.x <= r.x + r.w && tap.y >= r.y && tap.y <= r.y + r.h;

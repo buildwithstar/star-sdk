@@ -242,7 +242,6 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
   let _taps: { x: number; y: number; id: number; time: number }[] = [];
   const _pointers = new Map<number, { x: number; y: number; id: number; down: boolean }>();
 
-
   // Check if the event point is over an interactive UI element.
   // If so, the UI should handle it — suppress the canvas/input layer handler.
   // Only used for initiating events (down/start/click), not move/up/end,
@@ -384,7 +383,7 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
   }
 
   // 4. Create the GameContext object
-  const g: GameContext = {
+  const g = {
     stage: document.body,
     canvas,
     ctx,
@@ -397,7 +396,7 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
     get released() { return _released; },
     get taps() { return _taps as ReadonlyArray<{ x: number; y: number; id: number; time: number }>; },
     get pointers() { return Array.from(_pointers.values()) as ReadonlyArray<{ x: number; y: number; id: number; down: boolean }>; },
-    on: (type, selector, handler, options) => {
+    on: (type: string, selector: string, handler: (this: Element, ev: Event) => void, options?: AddEventListenerOptions) => {
       // Auto-enable pointer-events for UI elements matching this selector.
       // Without this, <div> click targets inside .star-ui (pointer-events: none)
       // would silently never receive events.
@@ -425,7 +424,7 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
       cleanup.push(off);
       return off;
     },
-    loop: (tick) => {
+    loop: (tick: GameTick) => {
       const MAX_DT = 0.1; // 100ms
   let raf = 0;
       let running = false;
@@ -468,14 +467,14 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
     },
     ui: {
       root: uiRoot,
-      render: (html) => {
+      render: (html: string) => {
         // Skip update if HTML is identical (prevents unnecessary DOM thrashing)
         // This makes ui.render() safe to call in the game loop for static content
         if (uiRoot.innerHTML === html) return;
         uiRoot.innerHTML = html;
       },
-      el: (selector) => uiRoot.querySelector(selector),
-      all: (selector) => uiRoot.querySelectorAll(selector),
+      el: <T extends Element = HTMLElement>(selector: string) => uiRoot.querySelector(selector) as T | null,
+      all: <T extends Element = HTMLElement>(selector: string) => uiRoot.querySelectorAll(selector) as NodeListOf<T>,
     },
     destroy: () => {
       loopControls?.stop();
@@ -494,7 +493,8 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
         ctx.restore();
       }
     },
-  };
+  } as unknown as GameContext;
+
 
   // Wire up input layer event listeners for polling
   inputLayer.addEventListener('pointerdown', (e) => {

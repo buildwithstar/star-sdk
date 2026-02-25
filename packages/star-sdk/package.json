@@ -1,6 +1,6 @@
 {
   "name": "star-sdk",
-  "version": "0.1.29",
+  "version": "0.1.30",
   "private": false,
   "description": "Browser game SDK with built-in leaderboards, mobile-safe audio, and one-command deploy. No backend needed. Works on iOS Safari.",
   "type": "module",
@@ -50,7 +50,7 @@
   ],
   "dependencies": {
     "star-audio": "^0.1.2",
-    "star-canvas": "^0.1.11",
+    "star-canvas": "^0.1.12",
     "star-leaderboard": "^0.1.11",
     "star-multiplayer": "^0.0.2",
     "star-sdk-cli": "^0.1.23"
