@@ -77,15 +77,15 @@ export interface GameContext {
   loop: (tick: GameTick) => GameLoop;
   /** The dedicated UI overlay manager. */
   readonly ui: GameUI;
-  /** Converts DOM event coords to logical stage coords (CSS px). Clamps to canvas bounds. */
+  /** @deprecated Use g.tap/g.pointer coordinates directly — they're already in canvas-space. */
   toStagePoint: (e: { clientX: number; clientY: number }) => { x: number; y: number };
   /** @deprecated Use g.tap/g.pointer/g.released polling instead. */
   createDrag: <T extends { x: number; y: number }>() => DragState<T>;
-  /** Register handler for tap/click (fires on pointerdown). Works anywhere on screen including letterbox. */
+  /** @deprecated Use g.tap polling in the game loop instead. */
   onTap: (handler: InputHandler) => void;
-  /** Register handler for pointer move. Works anywhere on screen including letterbox. */
+  /** @deprecated Use g.pointer polling in the game loop instead. */
   onMove: (handler: InputHandler) => void;
-  /** Register handler for pointer release (fires on pointerup). Works anywhere on screen including letterbox. */
+  /** @deprecated Use g.released polling in the game loop instead. */
   onRelease: (handler: InputHandler) => void;
   /** Tap this frame (pointerdown). Null if none. Canvas-space coords. Read in your game loop. */
   readonly tap: { x: number; y: number; time: number } | null;
