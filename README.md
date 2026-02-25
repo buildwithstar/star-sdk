@@ -35,22 +35,19 @@ npx star-sdk init "My Game"    # Register your game, creates .starrc
 import Star from 'star-sdk';
 Star.init({ gameId: '<paste gameId from .starrc>' });
 
-Star.game(ctx => {
+Star.game(g => {
+  const { ctx, width, height } = g;
   let score = 0;
   Star.audio.preload({ coin: 'coin' });
 
-  ctx.loop((dt) => {
-    ctx.ctx.fillStyle = '#1a1a2e';
-    ctx.ctx.fillRect(0, 0, ctx.width, ctx.height);
-    ctx.ctx.fillStyle = '#fff';
-    ctx.ctx.font = '24px sans-serif';
-    ctx.ctx.fillText(`Score: ${score}`, 20, 40);
+  g.loop((dt) => {
+    if (g.tap) { score += 10; Star.audio.play('coin'); }
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px sans-serif';
+    ctx.fillText(`Score: ${score}`, 20, 40);
   });
-
-  ctx.canvas.onclick = () => {
-    score += 10;
-    Star.audio.play('coin');
-  };
 });
 ```
 

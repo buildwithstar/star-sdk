@@ -31,9 +31,10 @@ The gameId is a server-issued token. Do not fabricate one — it must come from 
 ```javascript
 import Star from 'star-sdk';
 Star.init({ gameId: '<gameId from .starrc>' });
-Star.game(ctx => {
+Star.game(g => {
   Star.audio.preload({ coin: 'coin' });
-  ctx.loop((dt) => { /* game loop */ });
-  ctx.canvas.onclick = () => Star.audio.play('coin');
+  g.loop((dt) => {
+    if (g.tap) Star.audio.play('coin');  // Input polling
+  });
 });
 ```

@@ -79,7 +79,7 @@ export interface GameContext {
   readonly ui: GameUI;
   /** Converts DOM event coords to logical stage coords (CSS px). Clamps to canvas bounds. */
   toStagePoint: (e: { clientX: number; clientY: number }) => { x: number; y: number };
-  /** Creates a drag state helper for pointer-based dragging. Handles coordinate conversion and offset. */
+  /** @deprecated Use g.tap/g.pointer/g.released polling instead. */
   createDrag: <T extends { x: number; y: number }>() => DragState<T>;
   /** Register handler for tap/click (fires on pointerdown). Works anywhere on screen including letterbox. */
   onTap: (handler: InputHandler) => void;
@@ -169,7 +169,7 @@ export interface DragState<T extends { x: number; y: number }> {
   readonly dragging: T | null;
 }
 
-/** Creates a drag state helper that handles coordinate conversion and offset tracking */
+/** @deprecated Use g.tap/g.pointer/g.released polling for drag-and-drop instead. */
 export function createDragState<T extends { x: number; y: number }>(
   toStagePoint: (e: { clientX: number; clientY: number }) => { x: number; y: number }
 ): DragState<T> {

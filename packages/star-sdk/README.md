@@ -7,7 +7,7 @@ import Star from 'star-sdk';
 Star.init({ gameId: '<gameId from .starrc>' }); // run: npx star-sdk init
 
 Star.audio.play('coin');
-Star.game(ctx => { ... });
+Star.game(g => { /* g.tap, g.pointer for input */ });
 Star.leaderboard.submit(1500);
 ```
 
@@ -36,17 +36,18 @@ npx star-sdk init && cat > index.html << 'EOF'
 <script type="module">
 import Star from 'https://esm.sh/star-sdk';
 Star.init({ gameId: '<gameId from .starrc>' }); // run: npx star-sdk init
-Star.game(ctx => {
+Star.game(g => {
+  const { ctx, width, height } = g;
   let score = 0;
   Star.audio.preload({ coin: 'coin' });
-  ctx.loop(() => {
-    ctx.ctx.fillStyle = '#1a1a2e';
-    ctx.ctx.fillRect(0, 0, ctx.width, ctx.height);
-    ctx.ctx.fillStyle = '#fff';
-    ctx.ctx.font = '48px sans-serif';
-    ctx.ctx.fillText(score, ctx.width/2 - 20, ctx.height/2);
+  g.loop(() => {
+    if (g.tap) { score++; Star.audio.play('coin'); }
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#fff';
+    ctx.font = '48px sans-serif';
+    ctx.fillText(score, width/2 - 20, height/2);
   });
-  ctx.canvas.onclick = () => { score++; Star.audio.play('coin'); };
 });
 </script>
 EOF
@@ -77,8 +78,8 @@ This creates a `.starrc` file with your gameId. Open it, copy the `gameId` value
 import Star from 'star-sdk';
 Star.init({ gameId: '<gameId from .starrc>' }); // run: npx star-sdk init
 
-Star.game(ctx => {
-  const { canvas, width, height, ctx: c } = ctx;
+Star.game(g => {
+  const { ctx, width, height } = g;
   let score = 0;
 
   // Preload sounds
@@ -87,21 +88,21 @@ Star.game(ctx => {
     jump: 'jump',
   });
 
-  // Game loop
-  ctx.loop((dt) => {
-    c.fillStyle = '#1a1a2e';
-    c.fillRect(0, 0, width, height);
+  // Game loop — input and drawing happen here
+  g.loop((dt) => {
+    // Input (polling — automatically in canvas coordinates)
+    if (g.tap) {
+      score += 10;
+      Star.audio.play('coin');
+    }
 
-    c.fillStyle = '#fff';
-    c.font = '24px sans-serif';
-    c.fillText(\`Score: \${score}\`, 20, 40);
+    // Draw
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px sans-serif';
+    ctx.fillText(\`Score: \${score}\`, 20, 40);
   });
-
-  // Input
-  canvas.onclick = () => {
-    score += 10;
-    Star.audio.play('coin');
-  };
 });
 ```
 
@@ -131,19 +132,23 @@ Star.audio.toggleMute();
 
 ### Canvas
 
-Game loop with automatic DPR scaling and coordinate conversion.
+Game loop with automatic DPR scaling, input polling, and coordinate conversion.
 
 ```javascript
-Star.game(ctx => {
-  const { canvas, width, height, ctx: c, ui } = ctx;
+Star.game(g => {
+  const { ctx, width, height, ui } = g;
 
-  ctx.loop((dt) => {
+  g.loop((dt) => {
     // dt = delta time in seconds
-    c.clearRect(0, 0, width, height);
+    // Input polling (coordinates are canvas-space, automatic)
+    if (g.tap) { /* tap/click this frame: g.tap.x, g.tap.y */ }
+    if (g.pointer.down) { /* held: g.pointer.x, g.pointer.y */ }
+
+    ctx.clearRect(0, 0, width, height);
   });
 
-  // Delegated events
-  ctx.on('click', '.button', (e) => { ... });
+  // Delegated events for HTML UI buttons
+  g.on('click', '.button', (e) => { ... });
 
   // UI overlay (HTML on top of canvas)
   ui.render(\`<div class="score">Score: \${score}</div>\`);
@@ -192,24 +197,24 @@ import Star from 'star-sdk';
 
 Star.init({ gameId: '<gameId from .starrc>' });
 
-Star.game((ctx) => {
-  const { canvas, width, height, ctx: c } = ctx;
+Star.game((g) => {
+  const { ctx, width, height } = g;
   let score: number = 0;
 
   Star.audio.preload({ coin: 'coin', jump: 'jump' });
 
-  ctx.loop((dt: number) => {
-    c.fillStyle = '#111827';
-    c.fillRect(0, 0, width, height);
-    c.fillStyle = '#fff';
-    c.font = '24px sans-serif';
-    c.fillText(`Score: ${score}`, 20, 40);
-  });
+  g.loop((dt: number) => {
+    if (g.tap) {
+      score += 10;
+      Star.audio.play('coin');
+    }
 
-  canvas.onclick = () => {
-    score += 10;
-    Star.audio.play('coin');
-  };
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px sans-serif';
+    ctx.fillText(`Score: ${score}`, 20, 40);
+  });
 });
 ```
 

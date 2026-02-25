@@ -210,38 +210,33 @@ if (state === 'menu' || state === 'gameover') canvas.style.cursor = 'auto';  // 
 
 **Decision:** Does player click on game objects? → `'pointer'` | Aim precisely? → `'crosshair'` | WASD/touch only? → `'none'` during play, `'auto'` for menus
 
-### `toStagePoint(event)`
+### Drag and Drop (Polling Pattern)
 
-Converts `MouseEvent` or `PointerEvent` client coordinates to the stage's logical coordinates.
-
-  - **USE THIS** for all canvas pointer input.
-
-### `createDrag()`
-
-Creates a drag state helper that handles coordinate conversion and offset tracking automatically.
+Use `g.tap`, `g.pointer`, and `g.released` for drag-and-drop — coordinates are automatic.
 
 ```ts
-const drag = createDrag();
+let dragging = null;
+let offsetX = 0, offsetY = 0;
 
-canvas.addEventListener('pointerdown', (e) => {
-  canvas.setPointerCapture(e.pointerId);  // IMPORTANT: Capture for reliable drags
-  const { x, y } = drag.point(e);         // Convert coordinates
-  const hit = pieces.find(p => /* hit test */);
-  if (hit) drag.grab(e, hit);             // Start drag with offset
-});
-
-canvas.addEventListener('pointermove', (e) => drag.move(e));  // Updates position
-canvas.addEventListener('pointerup', () => {
-  const dropped = drag.release();  // Returns dropped object (or null)
+g.loop((dt) => {
+  if (g.tap) {
+    const hit = pieces.find(p => inRect(g.tap, p));
+    if (hit) {
+      dragging = hit;
+      offsetX = hit.x - g.tap.x;  // Offset so piece doesn't jump to cursor
+      offsetY = hit.y - g.tap.y;
+    }
+  }
+  if (dragging && g.pointer.down) {
+    dragging.x = g.pointer.x + offsetX;
+    dragging.y = g.pointer.y + offsetY;
+  }
+  if (g.released && dragging) {
+    handleDrop(dragging);
+    dragging = null;
+  }
 });
 ```
-
-**API:**
-- `point(e)` - Pure coordinate conversion, no side effects
-- `grab(e, obj)` - Start dragging an object, computing offset from cursor
-- `move(e)` - Update dragged object's position
-- `release()` - End drag, returns dropped object or null
-- `dragging` - The currently dragged object (or null)
 
 ### `GameOptions` (optional)
 
@@ -333,7 +328,8 @@ For puzzle games, card games, match-3, mobile-style games - use portrait preset.
 ```ts
 import { game } from 'star-canvas';
 
-game(({ ctx, width, height, loop, canvas, toStagePoint }) => {
+game((g) => {
+  const { ctx, width, height } = g;
   // width = 360, height = 640 (always, with letterboxing)
   const cellSize = 40;
   const gridCols = 8;
@@ -344,12 +340,12 @@ game(({ ctx, width, height, loop, canvas, toStagePoint }) => {
   const gridX = (width - gridWidth) / 2;
   const gridY = 80;
 
-  canvas.addEventListener('pointerdown', (e) => {
-    const { x, y } = toStagePoint(e);
-    // Handle tap on grid...
-  });
+  g.loop((dt) => {
+    // Input
+    if (g.tap) {
+      // g.tap.x, g.tap.y are canvas-space — handle tap on grid
+    }
 
-  loop((dt) => {
     ctx.fillStyle = '#1e1b4b';
     ctx.fillRect(0, 0, width, height);
 
@@ -374,16 +370,17 @@ For games that need different dimensions (e.g., pixel art at 320×180).
 ```ts
 import { game } from 'star-canvas';
 
-game(({ ctx, width, height, loop, toStagePoint, canvas }) => {
+game((g) => {
+  const { ctx, width, height } = g;
   // Custom 320×180 resolution (retro pixel art style)
   const player = { x: 160, y: 90 };  // Center
 
-  canvas.addEventListener('pointerdown', (e) => {
-    const { x, y } = toStagePoint(e);
-    console.log('Tapped at:', x, y);  // Always 0-320, 0-180
-  });
+  g.loop((dt) => {
+    // Input — g.tap coords are always 0-320, 0-180 regardless of screen size
+    if (g.tap) {
+      console.log('Tapped at:', g.tap.x, g.tap.y);
+    }
 
-  loop((dt) => {
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, width, height);
 
@@ -505,15 +502,15 @@ game(({ ctx, scoped, loop }) => {
 
 **Why use `scoped()`:** Prevents transform stack corruption from early returns, exceptions, or forgetting `ctx.restore()`. The context is always restored, even if the function exits early.
 
-### Recipe 7: Drag and Drop with createDrag() (RECOMMENDED)
+### Recipe 7: Drag and Drop
 
-Use the `createDrag()` helper - it handles coordinate conversion and offset tracking automatically.
+Use `g.tap`, `g.pointer`, and `g.released` for drag-and-drop. Coordinates are canvas-space automatically.
 
 ```ts
 import { game } from 'star-canvas';
 
-game(({ ctx, width, height, loop, canvas, createDrag }) => {
-  // Size relative to height for consistency
+game((g) => {
+  const { ctx, width, height } = g;
   const pieceSize = height * 0.15;
 
   const pieces = [
@@ -522,77 +519,8 @@ game(({ ctx, width, height, loop, canvas, createDrag }) => {
     { x: width * 0.6, y: height * 0.3, color: '#3b82f6' },
   ];
 
-  // Create drag helper - handles coordinate conversion automatically
-  const drag = createDrag();
-
-  function hitTest(x, y) {
-    for (let i = pieces.length - 1; i >= 0; i--) {
-      const p = pieces[i];
-      if (x >= p.x && x < p.x + pieceSize && y >= p.y && y < p.y + pieceSize) {
-        return p;
-      }
-    }
-    return null;
-  }
-
-  canvas.addEventListener('pointerdown', (e) => {
-    canvas.setPointerCapture(e.pointerId); // IMPORTANT: Ensures drag works outside canvas
-    const { x, y } = drag.point(e);        // Convert coordinates
-    const hit = hitTest(x, y);
-    if (hit) {
-      drag.grab(e, hit);                   // Start drag with offset from cursor
-      canvas.style.cursor = 'grabbing';
-    }
-  });
-
-  canvas.addEventListener('pointermove', (e) => {
-    drag.move(e);                          // Updates grabbed object position
-    if (!drag.dragging) {
-      const { x, y } = drag.point(e);
-      canvas.style.cursor = hitTest(x, y) ? 'grab' : 'default';
-    }
-  });
-
-  canvas.addEventListener('pointerup', () => {
-    const dropped = drag.release();        // Returns dropped object (or null)
-    if (dropped) {
-      console.log('Dropped:', dropped);
-    }
-    canvas.style.cursor = 'default';
-  });
-
-  loop(() => {
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(0, 0, width, height);
-
-    for (const p of pieces) {
-      ctx.fillStyle = drag.dragging === p ? '#fbbf24' : p.color;
-      ctx.fillRect(p.x, p.y, pieceSize, pieceSize);
-    }
-  });
-});
-```
-
-**CRITICAL: Always use `setPointerCapture()`** - This ensures drags work even when the pointer moves outside the canvas. Without it, fast drags can leave objects stuck mid-drag.
-
-### Recipe 8: Drag and Drop (Manual Pattern)
-
-If you need more control, here's the manual approach with `toStagePoint()`.
-
-```ts
-import { game } from 'star-canvas';
-
-game(({ ctx, width, height, loop, canvas, toStagePoint }) => {
-  const pieceSize = height * 0.15;
-  const pieces = [
-    { x: width * 0.2, y: height * 0.3, color: '#ef4444' },
-    { x: width * 0.4, y: height * 0.4, color: '#22c55e' },
-  ];
-
-  // Manual drag state
   let dragging = null;
-  let dragOffsetX = 0;
-  let dragOffsetY = 0;
+  let offsetX = 0, offsetY = 0;
 
   function hitTest(px, py) {
     for (let i = pieces.length - 1; i >= 0; i--) {
@@ -604,34 +532,28 @@ game(({ ctx, width, height, loop, canvas, toStagePoint }) => {
     return null;
   }
 
-  canvas.addEventListener('pointerdown', (e) => {
-    canvas.setPointerCapture(e.pointerId);  // Ensures drag works outside canvas
-    const { x, y } = toStagePoint(e);       // CRITICAL: Convert coordinates!
-    const hit = hitTest(x, y);
-    if (hit) {
-      dragging = hit;
-      dragOffsetX = x - hit.x;              // Store offset
-      dragOffsetY = y - hit.y;
-      canvas.style.cursor = 'grabbing';
+  g.loop(() => {
+    // Grab
+    if (g.tap) {
+      const hit = hitTest(g.tap.x, g.tap.y);
+      if (hit) {
+        dragging = hit;
+        offsetX = hit.x - g.tap.x;  // Offset so piece doesn't jump to cursor
+        offsetY = hit.y - g.tap.y;
+      }
     }
-  });
-
-  canvas.addEventListener('pointermove', (e) => {
-    const { x, y } = toStagePoint(e);  // CRITICAL: Convert here too!
-    if (dragging) {
-      dragging.x = x - dragOffsetX;
-      dragging.y = y - dragOffsetY;
-    } else {
-      canvas.style.cursor = hitTest(x, y) ? 'grab' : 'default';
+    // Move
+    if (dragging && g.pointer.down) {
+      dragging.x = g.pointer.x + offsetX;
+      dragging.y = g.pointer.y + offsetY;
     }
-  });
+    // Drop
+    if (g.released && dragging) {
+      console.log('Dropped:', dragging);
+      dragging = null;
+    }
 
-  canvas.addEventListener('pointerup', () => {
-    dragging = null;
-    canvas.style.cursor = 'default';
-  });
-
-  loop(() => {
+    // Draw
     ctx.fillStyle = '#1e293b';
     ctx.fillRect(0, 0, width, height);
 
@@ -642,13 +564,3 @@ game(({ ctx, width, height, loop, canvas, toStagePoint }) => {
   });
 });
 ```
-
-**Common Drag-Drop Mistakes:**
-
-1. ❌ Forgetting `toStagePoint()` in pointermove → `createDrag()` fixes this
-2. ❌ No drag offset (piece "jumps" to cursor) → `createDrag()` fixes this
-3. ❌ Using `e.clientX/clientY` directly → `createDrag()` fixes this
-4. ❌ Not clearing state on pointerup → `createDrag()` fixes this
-5. ❌ Missing `setPointerCapture()` (drags break outside canvas) → **You must add this!**
-
-**Recommendation:** Use `createDrag()` + `setPointerCapture()` for bulletproof drag-and-drop.

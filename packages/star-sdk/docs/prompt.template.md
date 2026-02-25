@@ -11,8 +11,8 @@ Unified SDK for game development. Audio, canvas, and leaderboards.
 ## Quick Start
 
 ```javascript
-Star.game(ctx => {
-  const { canvas, width, height, ctx: c } = ctx;
+Star.game(g => {
+  const { ctx, width, height } = g;
   let score = 0;
   let x = width / 2, y = height / 2;
 
@@ -26,35 +26,32 @@ Star.game(ctx => {
   // Start background music
   Star.audio.music.crossfadeTo('music');
 
-  // Game loop
-  ctx.loop((dt) => {
+  // Game loop — input and drawing happen here
+  g.loop((dt) => {
+    // Input (polling — coordinates are canvas-space, automatic)
+    if (g.tap) {
+      score += 10;
+      Star.audio.play('coin');
+    }
+    // Track pointer for player position
+    x = g.pointer.x;
+    y = g.pointer.y;
+
     // Clear
-    c.fillStyle = '#111827';
-    c.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, width, height);
 
     // Draw player
-    c.fillStyle = '#ef4444';
-    c.beginPath();
-    c.arc(x, y, 20, 0, Math.PI * 2);
-    c.fill();
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(x, y, 20, 0, Math.PI * 2);
+    ctx.fill();
 
     // Draw score
-    c.fillStyle = '#fff';
-    c.font = '24px sans-serif';
-    c.fillText(`Score: ${score}`, 20, 40);
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px sans-serif';
+    ctx.fillText(`Score: ${score}`, 20, 40);
   });
-
-  // Input
-  canvas.onpointermove = (e) => {
-    const p = ctx.toStagePoint(e);
-    x = p.x;
-    y = p.y;
-  };
-
-  canvas.onclick = () => {
-    score += 10;
-    Star.audio.play('coin');
-  };
 });
 ```
 
@@ -62,19 +59,23 @@ Star.game(ctx => {
 
 ### Star.game(setup, options?)
 
-Initialize canvas and game context.
+Initialize canvas and game context with input polling.
 
 ```javascript
-Star.game(ctx => {
-  const { canvas, width, height, ctx: c, ui } = ctx;
+Star.game(g => {
+  const { ctx, width, height, ui } = g;
 
-  ctx.loop((dt) => {
+  g.loop((dt) => {
+    // Input polling (canvas-space coordinates, automatic)
+    if (g.tap) { /* tap/click: g.tap.x, g.tap.y */ }
+    if (g.pointer.down) { /* held: g.pointer.x, g.pointer.y */ }
+
     // dt = delta time in seconds
-    c.clearRect(0, 0, width, height);
+    ctx.clearRect(0, 0, width, height);
   });
 
-  // Delegated events (safe for dynamic elements)
-  ctx.on('click', '.button', (e) => { ... });
+  // Delegated events for HTML UI buttons
+  g.on('click', '.button', (e) => { ... });
 
   // UI overlay (HTML on top of canvas)
   ui.render(`<div class="score">Score: ${score}</div>`);
@@ -142,8 +143,8 @@ scores.forEach(s => {
 ## Complete Game Example
 
 ```javascript
-Star.game(ctx => {
-  const { canvas, width, height, ctx: c } = ctx;
+Star.game(g => {
+  const { ctx, width, height } = g;
 
   // State
   let player = { x: width / 2, y: height - 50, speed: 300 };
@@ -170,21 +171,28 @@ Star.game(ctx => {
   setInterval(spawnEnemy, 1000);
 
   // Game loop
-  ctx.loop((dt) => {
+  g.loop((dt) => {
+    // Input (polling — coordinates are canvas-space, automatic)
+    player.x = g.pointer.x;  // Follow pointer
+    if (g.tap && !gameOver) {
+      bullets.push({ x: player.x, y: player.y - 20 });
+      Star.audio.play('shoot');
+    }
+
     if (gameOver) {
-      c.fillStyle = '#000';
-      c.fillRect(0, 0, width, height);
-      c.fillStyle = '#fff';
-      c.font = '32px sans-serif';
-      c.textAlign = 'center';
-      c.fillText('Game Over!', width / 2, height / 2);
-      c.fillText(`Score: ${score}`, width / 2, height / 2 + 40);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#fff';
+      ctx.font = '32px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Game Over!', width / 2, height / 2);
+      ctx.fillText(`Score: ${score}`, width / 2, height / 2 + 40);
       return;
     }
 
     // Clear
-    c.fillStyle = '#111827';
-    c.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, width, height);
 
     // Update bullets
     bullets = bullets.filter(b => {
@@ -218,44 +226,33 @@ Star.game(ctx => {
     });
 
     // Draw bullets
-    c.fillStyle = '#f59e0b';
+    ctx.fillStyle = '#f59e0b';
     bullets.forEach(b => {
-      c.fillRect(b.x - 2, b.y - 8, 4, 16);
+      ctx.fillRect(b.x - 2, b.y - 8, 4, 16);
     });
 
     // Draw enemies
-    c.fillStyle = '#ef4444';
+    ctx.fillStyle = '#ef4444';
     enemies.forEach(e => {
-      c.beginPath();
-      c.arc(e.x, e.y, 15, 0, Math.PI * 2);
-      c.fill();
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 15, 0, Math.PI * 2);
+      ctx.fill();
     });
 
     // Draw player
-    c.fillStyle = '#3b82f6';
-    c.beginPath();
-    c.moveTo(player.x, player.y - 20);
-    c.lineTo(player.x - 15, player.y + 15);
-    c.lineTo(player.x + 15, player.y + 15);
-    c.closePath();
-    c.fill();
+    ctx.fillStyle = '#3b82f6';
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y - 20);
+    ctx.lineTo(player.x - 15, player.y + 15);
+    ctx.lineTo(player.x + 15, player.y + 15);
+    ctx.closePath();
+    ctx.fill();
 
     // Draw score
-    c.fillStyle = '#fff';
-    c.font = '20px sans-serif';
-    c.textAlign = 'left';
-    c.fillText(`Score: ${score}`, 10, 30);
+    ctx.fillStyle = '#fff';
+    ctx.font = '20px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Score: ${score}`, 10, 30);
   });
-
-  // Controls
-  canvas.onpointermove = (e) => {
-    const p = ctx.toStagePoint(e);
-    player.x = p.x;
-  };
-
-  canvas.onclick = () => {
-    bullets.push({ x: player.x, y: player.y - 20 });
-    Star.audio.play('shoot');
-  };
 });
 ```
