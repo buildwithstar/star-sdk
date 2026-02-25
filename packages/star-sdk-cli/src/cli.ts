@@ -366,29 +366,35 @@ async function deployCommand(dirPath?: string) {
       info('Injected importmap for bare imports (star-sdk → esm.sh)');
     }
 
-    // Dynamic import archiver
-    const archiver = (await import('archiver')).default;
-
     // Create zip buffer
+    const { ZipFile } = await import('yazl');
+    const zipfile = new ZipFile();
+
+    // Add all files from deploy directory, excluding junk (skip index.html — added separately)
+    const IGNORE = new Set(['node_modules', '.starrc', '.git', '.DS_Store']);
+    function addDir(dir: string, prefix: string) {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (IGNORE.has(entry.name)) continue;
+        const full = path.join(dir, entry.name);
+        const zipPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          addDir(full, zipPath);
+        } else if (entry.name !== 'index.html') {
+          zipfile.addFile(full, zipPath);
+        }
+      }
+    }
+    addDir(deployDir, '');
+
+    // Add (possibly modified) index.html
+    zipfile.addBuffer(Buffer.from(processedHtml, 'utf-8'), 'index.html');
+    zipfile.end();
+
     const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
       const chunks: Buffer[] = [];
-      const archive = archiver('zip', { zlib: { level: 9 } });
-
-      archive.on('data', (chunk: Buffer) => chunks.push(chunk));
-      archive.on('end', () => resolve(Buffer.concat(chunks)));
-      archive.on('error', reject);
-
-      // Add all files from deploy directory, excluding junk (skip index.html — added separately)
-      archive.glob('**/*', {
-        cwd: deployDir,
-        ignore: ['node_modules/**', '.starrc', '.git/**', '.DS_Store', 'index.html'],
-        dot: false,
-      });
-
-      // Add (possibly modified) index.html
-      archive.append(processedHtml, { name: 'index.html' });
-
-      archive.finalize();
+      zipfile.outputStream.on('data', (chunk: Buffer) => chunks.push(chunk));
+      zipfile.outputStream.on('end', () => resolve(Buffer.concat(chunks)));
+      zipfile.outputStream.on('error', reject);
     });
 
     log(`  ${colors.dim}Uploading ${(zipBuffer.length / 1024).toFixed(1)} KB...${colors.reset}`);
