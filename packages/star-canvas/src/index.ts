@@ -43,15 +43,6 @@ export interface GameUI {
   all: <T extends Element = HTMLElement>(selector: string) => NodeListOf<T>;
 }
 
-/** Point with coordinates and the original event */
-export interface InputPoint {
-  x: number;
-  y: number;
-  event: PointerEvent;
-}
-
-/** Input handler type */
-export type InputHandler = (point: InputPoint) => void;
 
 export interface GameContext {
   /** The root <div> element for the canvas. */
@@ -77,16 +68,6 @@ export interface GameContext {
   loop: (tick: GameTick) => GameLoop;
   /** The dedicated UI overlay manager. */
   readonly ui: GameUI;
-  /** @deprecated Use g.tap/g.pointer coordinates directly — they're already in canvas-space. */
-  toStagePoint: (e: { clientX: number; clientY: number }) => { x: number; y: number };
-  /** @deprecated Use g.tap/g.pointer/g.released polling instead. */
-  createDrag: <T extends { x: number; y: number }>() => DragState<T>;
-  /** @deprecated Use g.tap polling in the game loop instead. */
-  onTap: (handler: InputHandler) => void;
-  /** @deprecated Use g.pointer polling in the game loop instead. */
-  onMove: (handler: InputHandler) => void;
-  /** @deprecated Use g.released polling in the game loop instead. */
-  onRelease: (handler: InputHandler) => void;
   /** Tap this frame (pointerdown). Null if none. Canvas-space coords. Read in your game loop. */
   readonly tap: { x: number; y: number; time: number } | null;
   /** Current primary pointer state. Always available, updated on every move. */
@@ -155,55 +136,6 @@ const PRESETS: Record<string, { width?: number; height?: number }> = {
   responsive: {},                           // Legacy: fills container
 };
 
-/** Drag state helper - handles coordinate conversion and offset tracking */
-export interface DragState<T extends { x: number; y: number }> {
-  /** Convert event to stage coordinates (pure function, no side effects) */
-  point: (e: { clientX: number; clientY: number }) => { x: number; y: number };
-  /** Start dragging an object - computes offset from cursor to object origin */
-  grab: (e: { clientX: number; clientY: number }, obj: T) => void;
-  /** Update the grabbed object's position based on pointer movement */
-  move: (e: { clientX: number; clientY: number }) => void;
-  /** Release the grabbed object and return it (or null if nothing was grabbed) */
-  release: () => T | null;
-  /** The currently grabbed object (or null) */
-  readonly dragging: T | null;
-}
-
-/** @deprecated Use g.tap/g.pointer/g.released polling for drag-and-drop instead. */
-export function createDragState<T extends { x: number; y: number }>(
-  toStagePoint: (e: { clientX: number; clientY: number }) => { x: number; y: number }
-): DragState<T> {
-  let target: T | null = null;
-  let offsetX = 0;
-  let offsetY = 0;
-
-  return {
-    point(e) {
-      return toStagePoint(e);
-    },
-    grab(e, obj) {
-      const { x, y } = toStagePoint(e);
-      target = obj;
-      offsetX = x - obj.x;
-      offsetY = y - obj.y;
-    },
-    move(e) {
-      if (target) {
-        const { x, y } = toStagePoint(e);
-        target.x = x - offsetX;
-        target.y = y - offsetY;
-      }
-    },
-    release() {
-      const dropped = target;
-      target = null;
-      return dropped;
-    },
-    get dragging() {
-      return target;
-    },
-  };
-}
 
 /* -------------------------------------------------------------------------- */
 /* Implementation                               */
@@ -302,10 +234,6 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
   inputLayer.className = 'star-input';
   document.body.appendChild(inputLayer);
 
-  // Input handler registries for the onTap/onMove/onRelease callback API
-  const tapHandlers: InputHandler[] = [];
-  const moveHandlers: InputHandler[] = [];
-  const releaseHandlers: InputHandler[] = [];
 
   // Polling state — frame-synchronized input (read via g.tap, g.pointer, etc.)
   let _tap: { x: number; y: number; time: number } | null = null;
@@ -314,30 +242,6 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
   let _taps: { x: number; y: number; id: number; time: number }[] = [];
   const _pointers = new Map<number, { x: number; y: number; id: number; down: boolean }>();
 
-  // Proxy canvas.onclick to inputLayer with proper replacement semantics
-  let currentOnClickHandler: ((e: Event) => void) | null = null;
-  let onClickListener: ((e: Event) => void) | null = null;
-
-  Object.defineProperty(canvas, 'onclick', {
-    get: () => currentOnClickHandler,
-    set: (fn: ((e: Event) => void) | null) => {
-      // Remove previous listener if exists
-      if (onClickListener) {
-        inputLayer.removeEventListener('click', onClickListener);
-        onClickListener = null;
-      }
-      currentOnClickHandler = fn;
-      if (fn) {
-        onClickListener = (e) => { if (!isOverUI(e)) fn.call(canvas, e); };
-        inputLayer.addEventListener('click', onClickListener);
-      }
-    },
-  });
-
-  // Proxy addEventListener/removeEventListener to inputLayer for pointer/mouse/touch/click events
-  const originalAddEventListener = canvas.addEventListener.bind(canvas);
-  const originalRemoveEventListener = canvas.removeEventListener.bind(canvas);
-  const listenerMap = new WeakMap<EventListenerOrEventListenerObject, EventListener>();
 
   // Check if the event point is over an interactive UI element.
   // If so, the UI should handle it — suppress the canvas/input layer handler.
@@ -350,41 +254,6 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
     return el !== null && el !== uiRoot && uiRoot.contains(el);
   }
 
-  const INITIATING_EVENTS = /^(click|pointerdown|mousedown|touchstart)$/;
-
-  canvas.addEventListener = function(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: boolean | AddEventListenerOptions
-  ) {
-    if (/^(click|pointer|mouse|touch)/.test(type) && typeof listener === 'function') {
-      const guard = INITIATING_EVENTS.test(type);
-      const wrappedListener = ((e: Event) => {
-        if (guard && isOverUI(e)) return;
-        (listener as EventListener).call(canvas, e);
-      }) as EventListener;
-      listenerMap.set(listener, wrappedListener);
-      inputLayer.addEventListener(type, wrappedListener, options);
-    } else {
-      originalAddEventListener(type, listener, options);
-    }
-  } as typeof canvas.addEventListener;
-
-  canvas.removeEventListener = function(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: boolean | EventListenerOptions
-  ) {
-    if (/^(click|pointer|mouse|touch)/.test(type) && typeof listener === 'function') {
-      const wrappedListener = listenerMap.get(listener);
-      if (wrappedListener) {
-        inputLayer.removeEventListener(type, wrappedListener, options);
-        listenerMap.delete(listener);
-      }
-    } else {
-      originalRemoveEventListener(type, listener, options);
-    }
-  } as typeof canvas.removeEventListener;
 
   // 3. Setup State & Sizing
   // Apply preset defaults (landscape 640x360 is default)
@@ -504,6 +373,16 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
     cleanup.push(() => vv.removeEventListener('resize', resize));
   }
   
+  // Convert DOM event coords to logical canvas coords
+  function toStagePoint(e: { clientX: number; clientY: number }) {
+    const rect = canvas.getBoundingClientRect();
+    let x = (e.clientX - rect.left) * (cssW / rect.width);
+    let y = (e.clientY - rect.top) * (cssH / rect.height);
+    x = Math.max(0, Math.min(cssW, x));
+    y = Math.max(0, Math.min(cssH, y));
+    return { x, y };
+  }
+
   // 4. Create the GameContext object
   const g: GameContext = {
     stage: document.body,
@@ -513,21 +392,6 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
     get height() { return cssH; },
     get dpr() { return dpr; },
     resize,
-    toStagePoint: (e) => {
-      const rect = canvas.getBoundingClientRect();
-      let x = (e.clientX - rect.left) * (cssW / rect.width);
-      let y = (e.clientY - rect.top) * (cssH / rect.height);
-      // Clamp to canvas bounds (handles letterbox clicks)
-      x = Math.max(0, Math.min(cssW, x));
-      y = Math.max(0, Math.min(cssH, y));
-      return { x, y };
-    },
-    createDrag: <T extends { x: number; y: number }>() => {
-      return createDragState<T>(g.toStagePoint);
-    },
-    onTap: (handler) => { tapHandlers.push(handler); },
-    onMove: (handler) => { moveHandlers.push(handler); },
-    onRelease: (handler) => { releaseHandlers.push(handler); },
     get tap() { return _tap; },
     get pointer() { return _pointer; },
     get released() { return _released; },
@@ -632,43 +496,32 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
     },
   };
 
-  // Wire up input layer event listeners for polling + onTap/onMove/onRelease callbacks
+  // Wire up input layer event listeners for polling
   inputLayer.addEventListener('pointerdown', (e) => {
-    const pt = g.toStagePoint(e);
-    // Always update continuous pointer state
+    const pt = toStagePoint(e);
     _pointer = { x: pt.x, y: pt.y, down: true };
     _pointers.set(e.pointerId, { x: pt.x, y: pt.y, id: e.pointerId, down: true });
 
     // Guard initiating event — suppress when over interactive UI
     if (isOverUI(e)) return;
 
-    // Per-frame polling state
     _tap = { x: pt.x, y: pt.y, time: e.timeStamp };
     _taps.push({ x: pt.x, y: pt.y, id: e.pointerId, time: e.timeStamp });
 
-    // Legacy callback API
-    const point: InputPoint = { ...pt, event: e };
-    tapHandlers.forEach(fn => fn(point));
   });
   inputLayer.addEventListener('pointermove', (e) => {
-    const pt = g.toStagePoint(e);
+    const pt = toStagePoint(e);
     _pointer = { x: pt.x, y: pt.y, down: _pointer.down };
     const existing = _pointers.get(e.pointerId);
     if (existing) _pointers.set(e.pointerId, { ...existing, x: pt.x, y: pt.y });
 
-    // Legacy callback API
-    const point: InputPoint = { ...pt, event: e };
-    moveHandlers.forEach(fn => fn(point));
   });
   inputLayer.addEventListener('pointerup', (e) => {
-    const pt = g.toStagePoint(e);
+    const pt = toStagePoint(e);
     _pointer = { x: pt.x, y: pt.y, down: false };
     _released = { x: pt.x, y: pt.y, time: e.timeStamp };
     _pointers.delete(e.pointerId);
 
-    // Legacy callback API
-    const point: InputPoint = { ...pt, event: e };
-    releaseHandlers.forEach(fn => fn(point));
   });
 
   // Expose destroy for the next run to cleanly replace us (HMR support)
