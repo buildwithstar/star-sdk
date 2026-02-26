@@ -423,10 +423,9 @@ export interface FallbackUIOptions {
 }
 
 export function showFallbackUI(options: FallbackUIOptions): void {
-  // Close any existing overlay
+  // Already showing — don't recreate (prevents API spam from game-loop calls)
   if (currentOverlay) {
-    currentOverlay.remove();
-    currentOverlay = null;
+    return;
   }
 
   injectStyles();
