@@ -720,7 +720,8 @@ async function main() {
       await deployCommand(positional[0]);
       break;
 
-    case 'install': {
+    case 'install':
+    case 'install-docs': {
       const agent = (positional[0] || 'claude') as Agent;
       const scope = flags.project ? 'project' : 'global';
       installCommand(agent, scope);
