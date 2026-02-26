@@ -257,4 +257,6 @@ const data = await Star.leaderboard.getScores({
 
 4. **Don't store leaderboard state** - Just call the SDK methods when needed. The platform handles caching.
 
+6. **`show()` is safe to call repeatedly** - It handles open/close state internally. Do not add your own `shown` flag; it will prevent the player from reopening the leaderboard.
+
 5. **Works for guests** - Guests get an auto-generated name like "Guest1234". Pass `{ playerName }` to let players choose their own name.

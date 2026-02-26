@@ -79,8 +79,8 @@ Star.game(g => {
 Use \`g.tap\` in the loop with if/else for priority — check buttons first, then general tap:
 
 \`\`\`javascript
-const lbBtn = { x: 200, y: 260, w: 240, h: 50 };
-const restartBtn = { x: 200, y: 330, w: 240, h: 50 };
+const lbBtn = { x: width / 2 - 120, y: height / 2 + 20, w: 240, h: 50 };
+const restartBtn = { x: width / 2 - 120, y: height / 2 + 90, w: 240, h: 50 };
 
 function inRect(tap, r) {
   return tap.x >= r.x && tap.x <= r.x + r.w && tap.y >= r.y && tap.y <= r.y + r.h;
@@ -1417,5 +1417,7 @@ leaderboard.submit(reactionTimeMs);
 3. **Use \`show()\` to display the leaderboard** - It's the easiest way. Use \`getScores()\` only if you need custom rendering.
 
 4. **Don't store leaderboard state** - Just call the SDK methods when needed. The SDK handles caching.
+
+6. **\`show()\` is safe to call repeatedly** - It handles open/close state internally. Do not add your own \`shown\` flag; it will prevent the player from reopening the leaderboard.
 
 5. **Works for guests** - Guests get an auto-generated name like "Guest1234". Pass \`{ playerName }\` to let players choose their own name.`;
