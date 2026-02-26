@@ -336,10 +336,10 @@ Each example is a single HTML file, no build step — imports from esm.sh.
 
 ## Deploy
 
-When the game is ready, deploy it with one command:
+No build step needed — deploy your source files directly:
 
 ```bash
 npx star-sdk deploy
 ```
 
-This uploads the game to Star hosting and returns a live URL. Requires `npx star-sdk init` to have been run first (which creates the deploy key in `.starrc`).
+This uploads the game to Star hosting and returns a live URL. The deploy command automatically rewrites bare imports (`import Star from 'star-sdk'`) to CDN URLs. Requires `npx star-sdk init` to have been run first (which creates the deploy key in `.starrc`).
