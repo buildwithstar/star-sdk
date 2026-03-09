@@ -420,6 +420,7 @@ function createScoreRow(score: LeaderboardScore, index: number, isYou: boolean =
 export interface FallbackUIOptions {
   gameId: string | null;
   getScores: (opts?: { timeframe?: 'weekly' | 'all_time' }) => Promise<LeaderboardData>;
+  waitFor?: Promise<unknown> | null;
 }
 
 export function showFallbackUI(options: FallbackUIOptions): void {
@@ -586,6 +587,10 @@ export function showFallbackUI(options: FallbackUIOptions): void {
     renderContent();
 
     try {
+      // Wait for any pending score submission before fetching
+      if (options.waitFor) {
+        await options.waitFor.catch(() => {});
+      }
       const data = await options.getScores({ timeframe: activeTab });
       scores = data.scores || [];
       youEntry = data.you || null;

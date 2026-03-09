@@ -78,6 +78,7 @@ export function createLeaderboardImpl(options: LeaderboardOptions = {}): StarLea
   let apiClient: ApiClient | null = null;
   const submitHandlers = new Set<SubmitHandler>();
   let lastSubmittedScore: number | undefined;
+  let pendingSubmit: Promise<SubmitResult> | null = null;
 
   // Initialize based on mode
   if (isPlatform) {
@@ -108,39 +109,45 @@ export function createLeaderboardImpl(options: LeaderboardOptions = {}): StarLea
         return { success: false, error: 'Invalid score value' };
       }
 
-      try {
-        let result: SubmitResult;
+      const p = (async (): Promise<SubmitResult> => {
+        try {
+          let result: SubmitResult;
 
-        if (isPlatform && platformBridge) {
-          result = await platformBridge.submit(score);
-        } else if (apiClient) {
-          const gid = getGameId();
-          if (!gid) {
-            error('Star SDK: No gameId set. Run "npx star-sdk init" in your terminal, then call Star.init({ gameId: \'<gameId from .starrc>\' }) before using Star.leaderboard.');
-            return { success: false, error: 'No gameId set. Run "npx star-sdk init" then call Star.init({ gameId }) before using leaderboard.' };
+          if (isPlatform && platformBridge) {
+            result = await platformBridge.submit(score);
+          } else if (apiClient) {
+            const gid = getGameId();
+            if (!gid) {
+              error('Star SDK: No gameId set. Run "npx star-sdk init" in your terminal, then call Star.init({ gameId: \'<gameId from .starrc>\' }) before using Star.leaderboard.');
+              return { success: false, error: 'No gameId set. Run "npx star-sdk init" then call Star.init({ gameId }) before using leaderboard.' };
+            }
+            // Use custom playerName if provided, otherwise use persistent default
+            const playerName = options?.playerName || getDefaultPlayerName() || undefined;
+            result = await apiClient.submit(gid, score, { playerName, sort: sortPreference ?? undefined });
+          } else {
+            return { success: false, error: 'Not initialized' };
           }
-          // Use custom playerName if provided, otherwise use persistent default
-          const playerName = options?.playerName || getDefaultPlayerName() || undefined;
-          result = await apiClient.submit(gid, score, { playerName, sort: sortPreference ?? undefined });
-        } else {
-          return { success: false, error: 'Not initialized' };
-        }
 
-        // Notify handlers
-        for (const handler of submitHandlers) {
-          try {
-            handler(result);
-          } catch (e) {
-            error('Submit handler error:', e);
+          // Notify handlers
+          for (const handler of submitHandlers) {
+            try {
+              handler(result);
+            } catch (e) {
+              error('Submit handler error:', e);
+            }
           }
-        }
 
-        return result;
-      } catch (e) {
-        const errMsg = e instanceof Error ? e.message : 'Unknown error';
-        error('Failed to submit score:', e);
-        return { success: false, error: errMsg };
-      }
+          return result;
+        } catch (e) {
+          const errMsg = e instanceof Error ? e.message : 'Unknown error';
+          error('Failed to submit score:', e);
+          return { success: false, error: errMsg };
+        }
+      })();
+
+      pendingSubmit = p;
+      p.finally(() => { if (pendingSubmit === p) pendingSubmit = null; });
+      return p;
     },
 
     async getScores(opts: GetScoresOptions = {}): Promise<LeaderboardData> {
@@ -181,6 +188,7 @@ export function createLeaderboardImpl(options: LeaderboardOptions = {}): StarLea
         showFallbackUI({
           gameId: gid,
           getScores: instance.getScores.bind(instance),
+          waitFor: pendingSubmit,
         });
       }
     },
