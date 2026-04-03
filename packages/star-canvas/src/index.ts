@@ -1,3 +1,5 @@
+import morphdom from 'morphdom';
+
 /**
  * Star DOM SDK v0.6.7
  * MIT License
@@ -21,7 +23,10 @@ export const version = '0.8.0';
 /* -------------------------------------------------------------------------- */
 
 declare global {
-  interface Window { __STAR_DOM__?: { destroy: () => void } }
+  interface Window {
+    __STAR_DOM__?: { destroy: () => void };
+    __STAR_DEBUG__?: boolean;
+  }
 }
 
 export type GameTick = (dt: number, now: number) => void;
@@ -154,20 +159,15 @@ function applyBaseCSS(): void {
     body {
       margin: 0; min-height: 100dvh; overflow: hidden; background: #000;
       -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+      touch-action: none;
     }
-    /* Canvas is rendering only - no pointer events */
+    /* Canvas is rendering only */
     .star-canvas {
       position: absolute; inset: 0; width: 100%; height: 100%;
       overflow: hidden; touch-action: none;
       z-index: 0;
       display: block;
       pointer-events: none;
-    }
-    /* Input layer captures all game input (including letterbox areas) */
-    .star-input {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      z-index: 5;
-      touch-action: none;
     }
     /* UI overlay - container is non-interactive, children opt-in */
     .star-ui {
@@ -209,7 +209,7 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
   }
 
   // Avoid duplicates on HMR / reinitialization
-  document.querySelectorAll('.star-ui, .star-canvas, .star-input').forEach(n => n.remove());
+  document.querySelectorAll('.star-ui, .star-canvas').forEach(n => n.remove());
 
   // 2. Create DOM structure
   const uiRoot = document.createElement('div');
@@ -229,11 +229,6 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
     canvas.addEventListener('contextmenu', onCtxMenu);
   }
 
-  // Create input layer - captures all game input including letterbox areas
-  const inputLayer = document.createElement('div');
-  inputLayer.className = 'star-input';
-  document.body.appendChild(inputLayer);
-
 
   // Polling state — frame-synchronized input (read via g.tap, g.pointer, etc.)
   let _tap: { x: number; y: number; time: number } | null = null;
@@ -242,15 +237,18 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
   let _taps: { x: number; y: number; id: number; time: number }[] = [];
   const _pointers = new Map<number, { x: number; y: number; id: number; down: boolean }>();
 
-  // Check if the event point is over an interactive UI element.
-  // If so, the UI should handle it — suppress the canvas/input layer handler.
-  // Only used for initiating events (down/start/click), not move/up/end,
-  // to avoid breaking drags that cross over UI elements.
-  function isOverUI(e: Event): boolean {
-    const pe = e as PointerEvent;
-    if (pe.clientX == null || pe.clientY == null) return false;
-    const el = document.elementFromPoint(pe.clientX, pe.clientY);
-    return el !== null && el !== uiRoot && uiRoot.contains(el);
+  let cleanup: (() => void)[] = [];
+
+  // Interactive element selector — used to suppress g.tap when tapping buttons,
+  // links, inputs, etc. Works for both g.ui.render() elements and standard DOM.
+  const INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, [data-interactive]';
+
+  // Check if the event target is an interactive element.
+  // Uses e.target (what the browser actually hit) instead of elementFromPoint
+  // (which is a synchronous layout query that can return wrong results).
+  function isInteractive(e: Event): boolean {
+    const target = e.target as Element | null;
+    return !!target?.closest?.(INTERACTIVE_SELECTOR);
   }
 
 
@@ -270,7 +268,6 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
   let cssH = fixedHeight ?? 1;
   let resizeSubscribers = new Set<() => void>();
   let loopControls: { start: () => void; stop: () => void; readonly running: boolean } | null = null;
-  let cleanup: (() => void)[] = [];
 
   function computeDpr(): number {
     if (typeof pr === 'number') return Math.min(Math.max(1, pr), maxDpr);
@@ -471,7 +468,13 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
         // Skip update if HTML is identical (prevents unnecessary DOM thrashing)
         // This makes ui.render() safe to call in the game loop for static content
         if (uiRoot.innerHTML === html) return;
-        uiRoot.innerHTML = html;
+        // Use morphdom to patch the DOM instead of replacing innerHTML.
+        // This preserves element identity — buttons, inputs, and other
+        // interactive elements survive content updates, preventing click
+        // loss, focus loss, and animation interruption.
+        const template = document.createElement('div');
+        template.innerHTML = html;
+        morphdom(uiRoot, template, { childrenOnly: true });
       },
       el: <T extends Element = HTMLElement>(selector: string) => uiRoot.querySelector(selector) as T | null,
       all: <T extends Element = HTMLElement>(selector: string) => uiRoot.querySelectorAll(selector) as NodeListOf<T>,
@@ -483,7 +486,6 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
       resizeSubscribers.clear();
       if (canvas.parentElement) canvas.parentElement.removeChild(canvas);
       if (uiRoot.parentElement) uiRoot.parentElement.removeChild(uiRoot);
-      if (inputLayer.parentElement) inputLayer.parentElement.removeChild(inputLayer);
     },
     scoped: (fn: () => void) => {
       ctx.save();
@@ -496,38 +498,104 @@ function init(setup: (g: GameContext) => void, options: GameOptions): void {
   } as unknown as GameContext;
 
 
-  // Wire up input layer event listeners for polling
-  inputLayer.addEventListener('pointerdown', (e) => {
+  // 5. Wire up document-level event listeners for polling.
+  // Listeners are on document (not canvas) so taps on letterbox areas
+  // (black bars in contain mode) still register as game input — critical
+  // for mobile where letterbox can be half the screen.
+  const onPointerDown = (e: PointerEvent) => {
     const pt = toStagePoint(e);
     _pointer = { x: pt.x, y: pt.y, down: true };
     _pointers.set(e.pointerId, { x: pt.x, y: pt.y, id: e.pointerId, down: true });
 
-    // Guard initiating event — suppress when over interactive UI
-    if (isOverUI(e)) return;
+    // Suppress g.tap when tapping interactive elements (buttons, links, inputs).
+    // Works for both g.ui.render() elements and standard DOM elements.
+    if (isInteractive(e)) return;
 
     _tap = { x: pt.x, y: pt.y, time: e.timeStamp };
     _taps.push({ x: pt.x, y: pt.y, id: e.pointerId, time: e.timeStamp });
 
-  });
-  inputLayer.addEventListener('pointermove', (e) => {
+  };
+  const onPointerMove = (e: PointerEvent) => {
     const pt = toStagePoint(e);
     _pointer = { x: pt.x, y: pt.y, down: _pointer.down };
     const existing = _pointers.get(e.pointerId);
     if (existing) _pointers.set(e.pointerId, { ...existing, x: pt.x, y: pt.y });
 
-  });
-  inputLayer.addEventListener('pointerup', (e) => {
+  };
+  const onPointerUp = (e: PointerEvent) => {
     const pt = toStagePoint(e);
     _pointer = { x: pt.x, y: pt.y, down: false };
     _released = { x: pt.x, y: pt.y, time: e.timeStamp };
     _pointers.delete(e.pointerId);
 
+  };
+  document.addEventListener('pointerdown', onPointerDown);
+  document.addEventListener('pointermove', onPointerMove);
+  document.addEventListener('pointerup', onPointerUp);
+  cleanup.push(() => {
+    document.removeEventListener('pointerdown', onPointerDown);
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
   });
 
   // Expose destroy for the next run to cleanly replace us (HMR support)
   window.__STAR_DOM__ = { destroy: g.destroy };
 
-  // 5. Run the user's setup code after initial sizing
+  // 6. Debug HUD — shows FPS, canvas size, DPR when window.__STAR_DEBUG__ is true
+  (function initDebugHUD() {
+    let el: HTMLElement | null = null;
+    let raf = 0;
+    let frames = 0;
+    let lastTime = performance.now();
+    let fps = 0;
+
+    function create() {
+      const d = document.createElement('div');
+      d.id = 'star-debug-hud';
+      d.style.cssText = 'position:fixed;top:8px;left:8px;z-index:9999;pointer-events:none;' +
+        'font:11px/1.4 monospace;color:#0f0;background:rgba(0,0,0,0.75);' +
+        'padding:6px 10px;border-radius:6px;border:1px solid rgba(0,255,0,0.25);' +
+        'white-space:pre;user-select:none;';
+      document.body.appendChild(d);
+      return d;
+    }
+
+    function tick() {
+      if (!el) return;
+      frames++;
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        fps = frames;
+        frames = 0;
+        lastTime = now;
+      }
+      el.textContent = `FPS: ${fps}\nSize: ${cssW}×${cssH} @${dpr.toFixed(1)}x`;
+      raf = requestAnimationFrame(tick);
+    }
+
+    function enable() {
+      if (el) return;
+      el = create();
+      frames = 0;
+      lastTime = performance.now();
+      fps = 0;
+      raf = requestAnimationFrame(tick);
+    }
+
+    function disable() {
+      cancelAnimationFrame(raf);
+      el?.remove();
+      el = null;
+    }
+
+    function sync() { window.__STAR_DEBUG__ ? enable() : disable(); }
+
+    window.addEventListener('star_debug_mode_changed', sync);
+    cleanup.push(() => { window.removeEventListener('star_debug_mode_changed', sync); disable(); });
+    sync();
+  })();
+
+  // 7. Run the user's setup code after initial sizing
   // Double rAF ensures CSS is applied and dimensions are correct
   requestAnimationFrame(() => requestAnimationFrame(() => {
     resize();

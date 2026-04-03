@@ -128,6 +128,8 @@ A safe manager for your HTML overlay, stacked on top of the canvas.
   - `ui.el(selector)`: Scoped `querySelector` for the UI root.
   - `ui.all(selector)`: Scoped `querySelectorAll` for the UI root.
 
+You can also place standard HTML elements (buttons, divs, inputs) directly in your HTML — they work alongside the canvas without needing `ui.render()`. Use `position: fixed` with `z-index: 20` to position them above the game.
+
 ### Input Polling: `tap`, `pointer`, `released`
 
 **The standard way to handle input.** Read these in your game loop — no event handlers needed.

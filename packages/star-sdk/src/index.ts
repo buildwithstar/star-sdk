@@ -35,6 +35,16 @@ import { createMultiplayer, type StarMultiplayer } from 'star-multiplayer';
 // export { createPayments, type StarPayments, type Product, type PromptResult } from 'star-payments';
 
 // ============================================================
+// Global type augmentation
+// ============================================================
+
+declare global {
+  interface Window {
+    __STAR_DEBUG__?: boolean;
+  }
+}
+
+// ============================================================
 // State
 // ============================================================
 
@@ -252,9 +262,60 @@ const Star = {
    */
   loadConfig: loadConfigFromFile,
 
+  /**
+   * Debug mode — read-only access to developer tools visibility.
+   *
+   * On the Star platform, toggle via Tools → Debug Mode or Cmd+Shift+D.
+   * During local development (localhost), use Cmd+Shift+D.
+   *
+   * Game code checks `Star.debug.enabled` to conditionally render
+   * debug UI (level pickers, god mode, state inspectors, etc.).
+   *
+   * @example
+   * ```javascript
+   * if (Star.debug.enabled) {
+   *   // render debug panel
+   * }
+   *
+   * Star.debug.onChange((on) => {
+   *   debugPanel.style.display = on ? 'block' : 'none';
+   * });
+   * ```
+   */
+  debug: {
+    get enabled(): boolean { return !!(isBrowser() && window.__STAR_DEBUG__); },
+    set enabled(_: boolean) { /* read-only — use platform toggle or Cmd+Shift+D */ },
+    onChange(callback: (enabled: boolean) => void): () => void {
+      if (!isBrowser()) return () => {};
+      const handler = () => callback(!!window.__STAR_DEBUG__);
+      window.addEventListener('star_debug_mode_changed', handler);
+      return () => window.removeEventListener('star_debug_mode_changed', handler);
+    },
+  },
+
   /** SDK version */
   version: '0.1.0',
 };
+
+// ============================================================
+// Debug keyboard shortcut (localhost only)
+// ============================================================
+
+if (isBrowser()) {
+  const host = window.location?.hostname;
+  const inStarIframe = window.parent !== window;
+  // Register shortcut on localhost only, and not inside a Star iframe
+  // (the platform's injected script handles the shortcut there via star_debug_shortcut_enabled)
+  if ((host === 'localhost' || host === '127.0.0.1') && !inStarIframe) {
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        window.__STAR_DEBUG__ = !window.__STAR_DEBUG__;
+        window.dispatchEvent(new Event('star_debug_mode_changed'));
+      }
+    });
+  }
+}
 
 // ============================================================
 // Exports
